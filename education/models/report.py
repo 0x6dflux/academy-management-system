@@ -8,7 +8,7 @@ class Report(BaseModel):
         "education.TeacherAcademicClass",
         models.CASCADE,
     )
-    session = models.ForeignKey("education.Session", models.CASCADE)
+    session = models.OneToOneField("education.Session", models.CASCADE)
     name = models.CharField(max_length=50)
     description = models.TextField()
     submission_date = models.DateTimeField(auto_now_add=True)
