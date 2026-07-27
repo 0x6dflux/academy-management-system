@@ -6,11 +6,14 @@ django-stubs==6.0.7
 django-stubs-ext==6.0.7
 djangorestframework==3.17.1
 djangorestframework-stubs==3.17.0
+drf-yasg==1.21.15
 executing==2.2.1
+inflection==0.5.1
 ipython==9.15.0
 ipython_pygments_lexers==1.1.1
 jedi==0.20.0
 matplotlib-inline==0.2.2
+packaging==26.2
 parso==0.8.7
 pexpect==4.9.0
 prompt_toolkit==3.0.52
@@ -22,9 +25,12 @@ ptyprocess==0.7.0
 pure_eval==0.2.3
 Pygments==2.20.0
 python-dotenv==1.2.2
+pytz==2026.3.post1
+PyYAML==6.0.3
 sqlparse==0.5.5
 stack-data==0.6.3
 traitlets==5.15.1
 types-PyYAML==6.0.12.20260724
 typing_extensions==4.16.0
+uritemplate==4.2.0
 wcwidth==0.8.2
