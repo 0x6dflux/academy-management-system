@@ -15,7 +15,6 @@ class User(BaseModel, AbstractUser):
 
     first_name = None  # type: ignore
     last_name = None  # type: ignore
-    email = None  # type: ignore
     date_joined = None  # type: ignore
     role = models.CharField(max_length=3, choices=RoleChoices.choices)
 
