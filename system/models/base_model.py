@@ -24,12 +24,9 @@ class BaseModel(models.Model):
     # to create the first user, null=False and blank=False will raise error
     is_deleted = models.BooleanField(default=False)
 
-    objects = SoftDeleteManager()
-
-    all_objects = models.Manager()
-    # `all_objects` manager is used
-    #   - by admin to view all objects
-    #   - to hard delete objects
+    soft_objects = SoftDeleteManager()
+    # this manager adds the soft deletion feature next
+    # to the default `objects` manager
 
     class Meta:
         abstract = True

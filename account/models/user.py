@@ -6,7 +6,7 @@ from django.db import models
 from system.models import BaseModel
 
 
-class User(BaseModel, AbstractUser):
+class User(AbstractUser, BaseModel):
     class RoleChoices(models.TextChoices):
         TEACHER = "TCH", "Teacher"
         EDUCATION_OFFICER = "EDO", "Education Officer"
