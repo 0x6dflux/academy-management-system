@@ -1,6 +1,6 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models.base_model import BaseModel
 
 
 class System(BaseModel):
