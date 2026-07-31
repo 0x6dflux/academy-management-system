@@ -317,3 +317,47 @@ class AccountTestCase(TestCase):
             TCH_body["role"],
             "Invalid TCH role!",
         )
+
+    def test_account_me_rejects_unsupported_methods(self):
+        url = reverse("account:me")
+        view_class = UserRetrieveAPIView
+
+        for method in self.http_methods - {"get"}:
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+                authentication=True,
+                user=self.admin,
+            )
+            self.assertEqual(
+                response.status_code,
+                405,
+                f"{self.admin} got accessed with {method}",
+            )
+
+    def test_login_with_account_me(self):
+        url = reverse("account:me")
+        view_class = UserRetrieveAPIView
+
+        for user in USER.objects.all():
+            response = self.simulate_server(
+                "get",
+                url,
+                {},
+                view_class,
+                authentication=True,
+                user=user,
+            )
+            self.assertEqual(response.status_code, 200, "Unsuccessful")
+            self.assertEqual(
+                response.data["username"],
+                user.username,
+                "Invalid username!",
+            )
+            self.assertEqual(
+                response.data["role"],
+                user.role,
+                "Invalid role!",
+            )
