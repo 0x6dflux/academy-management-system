@@ -6,8 +6,12 @@ from typing import TYPE_CHECKING
 from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import TestCase
+from django.urls import reverse
+from rest_framework.response import Response
+from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework.views import APIView
 
-# Create your tests here.
+from account.views import UserCreateAPIView, UserRetrieveAPIView
 
 if TYPE_CHECKING:
     from account.models import User
@@ -17,6 +21,23 @@ USER: User = get_user_model()  # type: ignore
 
 
 class AccountTestCase(TestCase):
+    def simulate_server(
+        self,
+        method: str,
+        url: str,
+        body: dict,
+        view_class: type[APIView],
+        *,
+        authentication=False,
+        user: User | None = None,
+    ) -> Response:
+        request = getattr(self.factory, method)(url, body)
+        view = view_class.as_view()
+        if authentication:
+            force_authenticate(request, user)
+
+        return view(request)
+
     def setUp(self) -> None:
         # ==================
         # setup the database
@@ -50,6 +71,12 @@ class AccountTestCase(TestCase):
             password="4_tch",
             role="TCH",
         )
+
+        # =================
+        # setup the request
+        # =================
+        self.http_methods = {"get", "post", "put", "patch", "delete", "head", "options"}
+        self.factory = APIRequestFactory()
 
     def test_create_user_with_management_command(self) -> None:
         number_of_users_before_call_command = USER.objects.count()
@@ -134,3 +161,159 @@ class AccountTestCase(TestCase):
         # each test is performed in a transaction
         # and the `setUp()` is run before each test
         # so, recreating the user with ADMIN role is not necessary
+
+    def test_create_user_rejects_unsupported_methods(self):
+        url = reverse("account:create-user")
+        view_class = UserCreateAPIView
+
+        for method in self.http_methods - {"post"}:
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+                authentication=True,
+                user=self.admin,
+            )
+            self.assertEqual(
+                response.status_code,
+                405,
+                f"{self.admin} got accessed with {method}",
+            )
+
+    def test_create_user_rejects_user_without_admin_role(self):
+        url = reverse("account:create-user")
+        view_class = UserCreateAPIView
+
+        for method in self.http_methods:
+            # anonymous user
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+            )
+            self.assertEqual(
+                response.status_code,
+                403,
+                f"{method} allows unauthenticated user!",
+            )
+
+            # all users except admin
+            for user in USER.objects.exclude(role=USER.RoleChoices.ADMIN):
+                response = self.simulate_server(
+                    method,
+                    url,
+                    {},
+                    view_class,
+                    authentication=True,
+                    user=user,
+                )
+                self.assertEqual(
+                    response.status_code,
+                    403,
+                    f"{user} got accessed with {method}",
+                )
+
+    def test_create_user_admin_creates_a_new_user(self):
+        number_of_users_before_call_command = USER.objects.count()
+
+        url = reverse("account:create-user")
+        view_class = UserCreateAPIView
+
+        FIO_body = {
+            "username": "test-finance-officer",
+            "password": "te$t1",
+            "role": "FIO",
+        }
+        EDO_body = {
+            "username": "test-education-officer",
+            "password": "te$t2",
+            "role": "EDO",
+        }
+        TCH_body = {
+            "username": "test-teacher",
+            "password": "te$t3",
+            "role": "TCH",
+        }
+
+        # creating FIO
+        FIO_response = self.simulate_server(
+            "post",
+            url,
+            FIO_body,
+            view_class,
+            authentication=True,
+            user=self.admin,
+        )
+
+        # creating EDO
+        EDO_response = self.simulate_server(
+            "post",
+            url,
+            EDO_body,
+            view_class,
+            authentication=True,
+            user=self.admin,
+        )
+
+        # creating TCH
+        TCH_response = self.simulate_server(
+            "post",
+            url,
+            TCH_body,
+            view_class,
+            authentication=True,
+            user=self.admin,
+        )
+
+        self.assertEqual(
+            USER.objects.count(),
+            number_of_users_before_call_command + 3,
+            "A test-user might not be created!",
+        )
+        self.assertEqual(
+            FIO_response.status_code,
+            201,
+            f"{FIO_body['username']} has not been created!",
+        )
+        self.assertEqual(
+            EDO_response.status_code,
+            201,
+            f"{EDO_body['username']} has not been created!",
+        )
+        self.assertEqual(
+            TCH_response.status_code,
+            201,
+            f"{TCH_body['username']} has not been created!",
+        )
+        self.assertEqual(
+            FIO_response.data["username"],
+            FIO_body["username"],
+            "Invalid FIO username!",
+        )
+        self.assertEqual(
+            FIO_response.data["role"],
+            FIO_body["role"],
+            "Invalid FIO role!",
+        )
+        self.assertEqual(
+            EDO_response.data["username"],
+            EDO_body["username"],
+            "Invalid EDO username!",
+        )
+        self.assertEqual(
+            EDO_response.data["role"],
+            EDO_body["role"],
+            "Invalid EDO role!",
+        )
+        self.assertEqual(
+            TCH_response.data["username"],
+            TCH_body["username"],
+            "Invalid TCH username!",
+        )
+        self.assertEqual(
+            TCH_response.data["role"],
+            TCH_body["role"],
+            "Invalid TCH role!",
+        )

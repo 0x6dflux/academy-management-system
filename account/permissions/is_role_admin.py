@@ -14,12 +14,8 @@ if TYPE_CHECKING:
 USER: User = get_user_model()  # type: ignore
 
 
-class IsEducationOfficerOrAdmin(BasePermission):
+class IsRoleAdmin(BasePermission):
     def has_permission(self, request: Request, view: APIView) -> bool:
-
-        return request.user.role in [  # type: ignore
-            USER.RoleChoices.ADMIN,
-            USER.RoleChoices.EDUCATION_OFFICER,
-        ]
+        return request.user.role == USER.RoleChoices.ADMIN  # type: ignore
         # `IsAuthenticated` permission will be performed prior to this
         # permission, so request.user will not be `anonymous`

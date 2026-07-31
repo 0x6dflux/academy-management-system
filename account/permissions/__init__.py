@@ -1,9 +1,11 @@
-from account.permissions.is_education_officer import IsEducationOfficer
-from account.permissions.is_finance_officer import IsFinanceOfficer
-from account.permissions.is_teacher import IsTeacher
+from account.permissions.is_education_officer import IsEducationOfficerOrAdmin
+from account.permissions.is_finance_officer import IsFinanceOfficerOrAdmin
+from account.permissions.is_role_admin import IsRoleAdmin
+from account.permissions.is_teacher import IsTeacherOrAdmin
 
 __all__ = [
-    "IsTeacher",
-    "IsEducationOfficer",
-    "IsFinanceOfficer",
+    "IsEducationOfficerOrAdmin",
+    "IsFinanceOfficerOrAdmin",
+    "IsRoleAdmin",
+    "IsTeacherOrAdmin",
 ]
