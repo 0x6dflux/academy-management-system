@@ -4,6 +4,6 @@ from system.models.system import System
 
 __all__ = [
     "BaseModel",
-    "System",
     "SoftDeleteManager",
+    "System",
 ]

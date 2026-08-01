@@ -1,9 +1,10 @@
 from typing import ClassVar
 
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 
-from system.models import BaseModel
+from account.models.user_manager import UserSoftDeleteManager
+from system.models import BaseModel, SoftDeleteManager
 
 
 class User(AbstractUser, BaseModel):
@@ -17,5 +18,8 @@ class User(AbstractUser, BaseModel):
     last_name = None  # type: ignore
     date_joined = None  # type: ignore
     role = models.CharField(max_length=3, choices=RoleChoices.choices)
+
+    objects = UserSoftDeleteManager()  # type: ignore
+    all_objects = UserManager()  # type: ignore
 
     REQUIRED_FIELDS: ClassVar[list[str]] = ["role"]
