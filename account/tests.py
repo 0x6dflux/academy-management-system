@@ -11,7 +11,8 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.views import APIView
 
-from account.views import UserCreateAPIView, UserRetrieveAPIView
+from account.models import TeacherProfile
+from account.views import TeacherProfileAPIView, UserCreateAPIView, UserRetrieveAPIView
 
 if TYPE_CHECKING:
     from account.models import User
@@ -178,7 +179,7 @@ class AccountTestCase(TestCase):
             self.assertEqual(
                 response.status_code,
                 405,
-                f"{self.admin} got accessed with {method}",
+                f"{self.admin} got access with {method}",
             )
 
     def test_create_user_rejects_user_without_admin_role(self):
@@ -212,7 +213,7 @@ class AccountTestCase(TestCase):
                 self.assertEqual(
                     response.status_code,
                     403,
-                    f"{user} got accessed with {method}",
+                    f"{user} got access with {method}",
                 )
 
     def test_create_user_admin_creates_a_new_user(self):
@@ -334,7 +335,7 @@ class AccountTestCase(TestCase):
             self.assertEqual(
                 response.status_code,
                 405,
-                f"{self.admin} got accessed with {method}",
+                f"{self.admin} got access with {method}",
             )
 
     def test_login_with_account_me(self):
@@ -360,4 +361,181 @@ class AccountTestCase(TestCase):
                 response.data["role"],
                 user.role,
                 "Invalid role!",
+            )
+
+    def test_teacher_profile_rejects_unsupported_methods(self):
+        url = reverse("account:teacher-profile")
+        view_class = TeacherProfileAPIView
+
+        for method in {"head", "options"}:
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+                authentication=True,
+                user=self.admin,
+            )
+            self.assertEqual(
+                response.status_code,
+                405,
+                f"{self.admin} got access with {method}",
+            )
+
+    def test_teacher_profile_permissions(self):
+        url = reverse("account:teacher-profile")
+        view_class = TeacherProfileAPIView
+
+        for method in self.http_methods - {"head", "options"}:
+            # anonymous user
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+            )
+            self.assertEqual(
+                response.status_code,
+                401,
+                f"Anonymous user got access with {method}",
+            )
+
+            # authenticated user
+            response = self.simulate_server(
+                method,
+                url,
+                {},
+                view_class,
+                authentication=True,
+                user=self.finance_officer,
+            )
+            self.assertEqual(
+                response.status_code,
+                403,
+                f"{self.finance_officer} got access with {method}",
+            )
+
+    def test_create_teacher_profile(self):
+        # number of teacher profiles before creating a new profile
+        number_of_profiles = TeacherProfile.all_objects.count()
+
+        # successful scenario
+        method = "post"
+        url = reverse("account:teacher-profile")
+        body = {
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "phone_number": "09123456789",
+            "emergency_phone_number": "02112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+            "The response of creating a new profile is not 200!",
+        )
+
+        self.assertEqual(
+            number_of_profiles + 1,
+            TeacherProfile.all_objects.count(),
+            "Inconsistent number of profiles!",
+        )
+
+        user = response.data.pop("user")
+        self.assertEqual(
+            user,
+            {
+                "username": self.teacher1.username,
+                "role": self.teacher1.role,
+                "email": self.teacher1.email,
+            },
+            "Inconsistent user info!",
+        )
+        self.assertEqual(response.data, body, "Inconsistent profile info!")
+
+        # updating the number of profiles
+        number_of_profiles = TeacherProfile.all_objects.count()
+
+        # teacher profile exists
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+            "The response of creating a new profile is not 400!",
+        )
+
+        self.assertEqual(
+            number_of_profiles,
+            TeacherProfile.all_objects.count(),
+            "Inconsistent number of profiles!",
+        )
+
+        self.assertEqual(
+            response.data,
+            {"message": "The profile already exists!"},
+            "Inconsistent response message!",
+        )
+
+        # updating the number of profiles
+        number_of_profiles = TeacherProfile.all_objects.count()
+
+        # missing or bad data in request body
+        bodies = [
+            {
+                "first_name": "Mahdi",
+                "last_name": "Mohammadi",
+                "phone_number": "09123456789",
+            },
+            {
+                "firstname": "Mahdi",
+                "last_name": "Mohammadi",
+                "phone_number": "09123456789",
+                "emergency_phone_number": "02112345678",
+            },
+        ]
+
+        for body in bodies:
+            response = self.simulate_server(
+                method,
+                url,
+                body,
+                view_class,
+                authentication=True,
+                user=self.teacher1,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                400,
+                "The response of creating a new profile is not 400!",
+            )
+
+            self.assertEqual(
+                number_of_profiles,
+                TeacherProfile.all_objects.count(),
+                "Inconsistent number of profiles!",
+            )
+
+            self.assertEqual(
+                response.data,
+                {"message": "The profile already exists!"},
+                "Inconsistent response message!",
             )
