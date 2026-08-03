@@ -1,6 +1,7 @@
 asgiref==3.12.1
 ast_serialize==0.6.0
 asttokens==3.0.2
+coverage==7.15.3
 decorator==5.3.1
 Django==6.0.7
 django-stubs==6.0.7
