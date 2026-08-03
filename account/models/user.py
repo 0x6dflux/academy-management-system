@@ -1,10 +1,8 @@
-from typing import ClassVar
-
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 
 from account.models.user_manager import UserSoftDeleteManager
-from system.models import BaseModel, SoftDeleteManager
+from system.models import BaseModel
 
 
 class User(AbstractUser, BaseModel):
@@ -14,12 +12,15 @@ class User(AbstractUser, BaseModel):
         FINANCE_OFFICER = "FIO", "Finance Officer"
         ADMIN = "ADM", "Admin"
 
+    username = None  # type: ignore
     first_name = None  # type: ignore
     last_name = None  # type: ignore
     date_joined = None  # type: ignore
-    role = models.CharField(max_length=3, choices=RoleChoices.choices)
+    email = models.EmailField(unique=True)
+    role = models.CharField(max_length=3, choices=RoleChoices)
 
     objects = UserSoftDeleteManager()  # type: ignore
     all_objects = UserManager()  # type: ignore
 
-    REQUIRED_FIELDS: ClassVar[list[str]] = ["role"]
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["role"]

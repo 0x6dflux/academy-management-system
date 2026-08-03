@@ -4,12 +4,11 @@ from system.models import BaseModel
 
 
 class TeacherProfile(BaseModel):
-    user = models.OneToOneField("account.User", models.CASCADE)
+    user = models.OneToOneField("account.User", models.CASCADE, related_name="profile")
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
-    phone_number = models.CharField(max_length=11)
-    emergency_phone_number = models.CharField(max_length=11)
-    # phone number or house number
+    mobile_number = models.CharField(max_length=15)
+    landline_number = models.CharField(max_length=15)
 
     def __str__(self) -> str:
-        return f"{self.first_name}-{self.last_name}-{self.user.role}"
+        return f"{self.first_name} {self.last_name}"
