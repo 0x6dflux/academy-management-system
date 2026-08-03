@@ -1,18 +1,19 @@
 from django.db import models
-from django.utils.timezone import now
+
+# from django.utils.timezone import now
 
 
 class SoftDeleteQuerySet(models.QuerySet):
     def soft_delete(self, updated_by) -> None:
         # self.update(is_deleted=True, updated_at=now(), updated_by=updated_by)
-        # the above line improves the performance, but teh cascade soft deletion is incomplete
+        # the above line improves the performance, but the cascade soft deletion is incomplete
 
         # cascade soft deletion is complete but with poorer performance
         for obj in self:
-            obj.soft_delete(updated_by)
+            obj.soft_delete(updated_by)  # type: ignore
 
 
-class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
+class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):  # type: ignore
     def get_queryset(self) -> models.QuerySet:
         return super().get_queryset().filter(is_deleted=False)
         # return SoftDeleteQuerySet(self.model, using=self._db).filter(is_deleted=False)
