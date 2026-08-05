@@ -54,10 +54,25 @@ class BaseModel(models.Model):
                 field.is_relation
                 and field.auto_created
                 and issubclass(field.related_model, BaseModel)  # type: ignore
+                # there might be an `TypeError` exception for the above line: issubclass(None, BaseModel)
+                # it would be better to check the below condition, then move the above line in the if block
+                # and field.related_model is not None
+                and field.related_model.SoftDeletionOptions.cascade  # type: ignore
             ):
                 reverse_relations.append(field)
 
         for reverse_relation in reverse_relations:
+            # these attributes shall have `related_model`, since they are relational attributes
+            # but, there might be an `AttributeError` for `SoftDeletionPolicy`
+            # at first, the exception was handled with a try-except block
+            # however, the SoftDeletionPolicy subclass has been added to the BaseModel
+            # so, there is no need to catch the exception
+            # cascade_policy = reverse_relation.related_model.SoftDeletionPolicy.cascade  # type: ignore
+            # if cascade_policy is False:
+            #     # there might be a customized equality magic method, so, it is better
+            #     # to use `is` rather than `==`
+            #     continue
+
             # there might be a `RelatedObjectDoesNotExist` exception
             # suppose a user with teacher role has been created, but no TeacherProfile
             # is created. if you soft delete this user, the cascade soft deletion will
@@ -84,6 +99,12 @@ class BaseModel(models.Model):
             # for example, school and contact person models were related by a
             # `ManyToMany` field. The tests showed that this relation is wrong.
 
+    # use transaction.atomic decorator!?
     def soft_delete(self, updated_by) -> None:
-        self._perform_obj_soft_delete(updated_by)
         self._perform_cascade_soft_delete(updated_by)
+        # first, perform soft deletion on children, then on the parent
+        # more robust for production!?
+        self._perform_obj_soft_delete(updated_by)
+
+    class SoftDeletionOptions:
+        cascade = True

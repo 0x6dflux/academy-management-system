@@ -45,4 +45,6 @@ class Report(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.serial_number}"
-        return self.name
+
+    class SoftDeletionOptions:
+        cascade = False
