@@ -9,12 +9,12 @@ from django.utils.timezone import now
 
 from account.models import TeacherProfile
 from education.models import (
-    AcademicClass,
+    Course,
     Report,
     School,
     SchoolContactPerson,
     Session,
-    TeacherAcademicClass,
+    TeacherCourse,
 )
 
 if TYPE_CHECKING:
@@ -85,9 +85,9 @@ class SystemTestCase(TestCase):
             updated_by=self.admin,
         )
         # Academic Class
-        self.academic_class = AcademicClass.objects.create(
+        self.academic_class = Course.objects.create(
             name="Math",
-            level=AcademicClass.LevelChoices.BASIC,
+            level=Course.LevelChoices.BASIC,
             start_date=now(),
             end_date=now() + timedelta(days=30),
             serial_number="AC0001",
@@ -108,7 +108,7 @@ class SystemTestCase(TestCase):
             number_of_absentees=2,
         )
         # Teacher_AcademicClass through table
-        self.tac = TeacherAcademicClass.objects.create(
+        self.tac = TeacherCourse.objects.create(
             teacher_profile=self.teacher_profile,
             academic_class=self.academic_class,
             started_at=now(),
@@ -246,14 +246,12 @@ class SystemTestCase(TestCase):
         )
 
         # todo: recursive relation
-        AcademicClass.objects.get(id=self.academic_class.pk).soft_delete(
-            updated_by=self.admin
-        )
+        Course.objects.get(id=self.academic_class.pk).soft_delete(updated_by=self.admin)
 
         # checking the number of objects
         self.assertEqual(
-            AcademicClass.all_objects.count() - 1,
-            AcademicClass.objects.count(),
+            Course.all_objects.count() - 1,
+            Course.objects.count(),
             "Inconsistent academic classes after soft deletion!",
         )
         self.assertEqual(
@@ -262,8 +260,8 @@ class SystemTestCase(TestCase):
             "Inconsistent sessions after soft deletion!",
         )
         self.assertEqual(
-            TeacherAcademicClass.all_objects.count() - 1,
-            TeacherAcademicClass.objects.count(),
+            TeacherCourse.all_objects.count() - 1,
+            TeacherCourse.objects.count(),
             "Inconsistent teacher_academic_classes after soft deletion!",
         )
         self.assertEqual(
@@ -273,7 +271,7 @@ class SystemTestCase(TestCase):
         )
         # checking the `is_deleted` field
         self.assertEqual(
-            AcademicClass.all_objects.get(id=self.academic_class.pk).is_deleted,
+            Course.all_objects.get(id=self.academic_class.pk).is_deleted,
             True,
             f"{self.academic_class} not soft deleted!",
         )
@@ -283,7 +281,7 @@ class SystemTestCase(TestCase):
             f"{self.session} not soft deleted!",
         )
         self.assertEqual(
-            TeacherAcademicClass.all_objects.get(id=self.tac.pk).is_deleted,
+            TeacherCourse.all_objects.get(id=self.tac.pk).is_deleted,
             True,
             f"{self.tac} not soft deleted!",
         )

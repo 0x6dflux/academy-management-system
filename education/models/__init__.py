@@ -1,17 +1,17 @@
-from education.models.academic_class import AcademicClass
+from education.models.course import Course
 from education.models.report import Report
 from education.models.school import School
 from education.models.school_contact_person import SchoolContactPerson
 from education.models.semester import Semester
 from education.models.session import Session
-from education.models.teacher_academic_class import TeacherAcademicClass
+from education.models.teacher_course import TeacherCourse
 
 __all__ = [
-    "AcademicClass",
+    "Course",
     "Report",
     "School",
     "SchoolContactPerson",
     "Semester",
     "Session",
-    "TeacherAcademicClass",
+    "TeacherCourse",
 ]

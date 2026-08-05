@@ -1,23 +1,48 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import BaseModel, SerialNumberAbbreviation
+
+
+def get_next_serial() -> int:
+    last_serial = (
+        Report.all_objects.order_by("-pk")
+        # it is conventionally better to use `pk` rather than `id`
+        .values_list("serial_digit", flat=True)
+        .first()
+    )
+
+    return last_serial + 1 if last_serial else 1
 
 
 class Report(BaseModel):
-    teacher_academic_class = models.ForeignKey(
-        "education.TeacherAcademicClass",
-        models.CASCADE,
+    session = models.OneToOneField(
+        "education.Session",
+        models.SET_NULL,
+        related_name="report",
+        null=True,
+        blank=True,
     )
-    session = models.OneToOneField("education.Session", models.CASCADE)
-    name = models.CharField(max_length=50)
-    description = models.TextField()
-    submission_date = models.DateTimeField(auto_now_add=True)
+    teacher_profile = models.ForeignKey(
+        "account.TeacherProfile",
+        models.SET_NULL,
+        "reports",
+        null=True,
+        blank=True,
+    )
+    tutorial_summary = models.TextField()
+    number_of_attendees = models.PositiveSmallIntegerField()
+    number_of_absentees = models.PositiveSmallIntegerField()
     is_delayed = models.BooleanField()
-    # shall not be filled by default, this is a required field
-    # [validation] define a function/method to determine the delay
-    # this validation shall be simple at first
-    # then, shall be modified to be calculated as a delayed report in wage
-    serial_number = models.CharField(max_length=6)  # RPxxxx
+    delay_time = models.PositiveSmallIntegerField()
+    serial_digit = models.PositiveSmallIntegerField(
+        unique=True,
+        default=get_next_serial,
+    )
+
+    @property
+    def serial_number(self) -> str:  # RPXXXX
+        return f"{SerialNumberAbbreviation.REPORT}{self.serial_digit:04d}"
 
     def __str__(self) -> str:
+        return f"{self.serial_number}"
         return self.name
