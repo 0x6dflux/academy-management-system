@@ -1,8 +1,3 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
-from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -14,6 +9,7 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 
 from account.models import TeacherProfile
+from account.models.user import User
 from account.permissions import (
     IsEducationOfficerOrAdmin,
     IsTeacherOrAdmin,
@@ -24,17 +20,14 @@ from account.serializers import (
     TeacherProfileTeacherRoleSerializer,
 )
 
-if TYPE_CHECKING:
-    from account.models.user import User
-
-USER: User = get_user_model()  # type: ignore
+USER = User
 
 
 class TeacherProfileAPIView(APIView):
-    http_method_names = ["get", "post", "put", "patch", "delete"]
-    permission_classes = [IsAuthenticated]
+    http_method_names = ("get", "post", "put", "patch", "delete")
+    permission_classes = (IsAuthenticated,)
 
-    def get_permissions(self):
+    def get_permissions(self) -> list:
         permissions: list = super().get_permissions()  # type: ignore
 
         if self.request.method in ["POST", "PUT", "PATCH"]:
@@ -47,9 +40,15 @@ class TeacherProfileAPIView(APIView):
         return permissions
 
     def _retrieve(self, request: Request) -> Response:
-        queryset = TeacherProfile.objects.filter(user=request.user)
+        queryset = TeacherProfile.objects.filter(user=request.user)  # type: ignore
         if not queryset.exists():
             return Response({"message": "Create your profile."}, HTTP_400_BAD_REQUEST)
+
+        if queryset.count() > 1:
+            return Response(
+                {"message": "Multiple profiles found!"},
+                HTTP_400_BAD_REQUEST,
+            )
 
         teacher_instance = queryset.first()
         teacher_serializer = TeacherProfileTeacherRoleSerializer(teacher_instance)
@@ -66,7 +65,7 @@ class TeacherProfileAPIView(APIView):
         return Response(education_officer_serializer.data)
 
     def _update(self, request: Request, *, partial=False) -> Response:
-        teacher_instance = TeacherProfile.objects.get(user=request.user)
+        teacher_instance = TeacherProfile.objects.get(user=request.user)  # type: ignore
         teacher_serializer = TeacherProfileTeacherRoleSerializer(
             teacher_instance,
             request.data,
@@ -98,7 +97,7 @@ class TeacherProfileAPIView(APIView):
         #         HTTP_400_BAD_REQUEST,
         #     )
 
-        if TeacherProfile.objects.filter(user=request.user).exists():
+        if TeacherProfile.objects.filter(user=request.user).exists():  # type: ignore
             return Response(
                 {"message": "The profile already exists!"},
                 HTTP_400_BAD_REQUEST,
@@ -127,7 +126,10 @@ class TeacherProfileAPIView(APIView):
 
         if not teacher_profile_id:
             return Response(
-                {"message": "Pass the teacher profile id!"},
+                {
+                    "message": "Pass the teacher profile id by query string!",
+                    "example": "/teacher-profile/?id=3",
+                },
                 HTTP_400_BAD_REQUEST,
             )
 
