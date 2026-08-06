@@ -1,9 +1,9 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import SoftDeleteBaseModel
 
 
-class SchoolContactPerson(BaseModel):
+class SchoolContactPerson(SoftDeleteBaseModel):
     class SchoolRoleChoices(models.IntegerChoices):
         MANAGER = 1, "Manager"
         DEPUTY = 2, "Deputy"

@@ -5,7 +5,9 @@ from system.models import BaseModel, SerialNumberAbbreviation
 
 def get_next_serial() -> int:
     last_serial = (
-        Report.all_objects.order_by("-pk")
+        # as per project requirements, the `Report` model shall not be
+        # soft or hard deleted. so, the default manager shall be used.
+        Report.objects.order_by("-pk")
         # it is conventionally better to use `pk` rather than `id`
         .values_list("serial_digit", flat=True)
         .first()

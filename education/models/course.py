@@ -1,6 +1,6 @@
 from django.db import models
 
-from system.models import BaseModel, SerialNumberAbbreviation
+from system.models import SerialNumberAbbreviation, SoftDeleteBaseModel
 
 
 def get_next_serial() -> int:
@@ -14,7 +14,7 @@ def get_next_serial() -> int:
     return last_serial + 1 if last_serial else 1
 
 
-class Course(BaseModel):
+class Course(SoftDeleteBaseModel):
     class SessionLengthChoices(models.IntegerChoices):
         MIN60 = 60, "60 min"
         MIN90 = 90, "90 min"

@@ -1,6 +1,6 @@
 from django.db import models
 
-from system.models import BaseModel, SerialNumberAbbreviation
+from system.models import SerialNumberAbbreviation, SoftDeleteBaseModel
 
 
 # what about concurrency?!
@@ -16,7 +16,7 @@ def get_next_serial() -> int:
     return last_serial + 1 if last_serial else 1
 
 
-class School(BaseModel):
+class School(SoftDeleteBaseModel):
     name = models.CharField(max_length=50)
     email = models.EmailField()
     landline_number = models.CharField(max_length=15)

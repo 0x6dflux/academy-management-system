@@ -1,9 +1,9 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import SoftDeleteBaseModel
 
 
-class Wage(BaseModel):
+class Wage(SoftDeleteBaseModel):
     class MonthChoices(models.IntegerChoices):
         MONTH_01 = 1, "January"
         MONTH_02 = 2, "February"

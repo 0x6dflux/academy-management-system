@@ -1,9 +1,9 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import SoftDeleteBaseModel
 
 
-class TeacherCourse(BaseModel):
+class TeacherCourse(SoftDeleteBaseModel):
     """customized through table between Teacher and Course"""
 
     pk = models.CompositePrimaryKey("teacher_profile_id", "course_id")

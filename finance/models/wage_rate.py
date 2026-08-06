@@ -1,9 +1,9 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import SoftDeleteBaseModel
 
 
-class WageRate(BaseModel):
+class WageRate(SoftDeleteBaseModel):
     # not considering the `related_name` may be a good option
     semester = models.ForeignKey("education.Semester", models.CASCADE, "wage_rate")
     teacher_profile = models.ForeignKey(

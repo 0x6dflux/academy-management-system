@@ -1,9 +1,9 @@
 from django.db import models
 
-from system.models import BaseModel
+from system.models import SoftDeleteBaseModel
 
 
-class TeacherProfile(BaseModel):
+class TeacherProfile(SoftDeleteBaseModel):
     user = models.OneToOneField("account.User", models.CASCADE, related_name="profile")
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)

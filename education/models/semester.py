@@ -1,6 +1,6 @@
 from django.db import models
 
-from system.models import BaseModel, SerialNumberAbbreviation
+from system.models import SerialNumberAbbreviation, SoftDeleteBaseModel
 
 
 def get_next_serial() -> int:
@@ -14,7 +14,7 @@ def get_next_serial() -> int:
     return last_serial + 1 if last_serial else 1
 
 
-class Semester(BaseModel):
+class Semester(SoftDeleteBaseModel):
     school = models.ForeignKey("education.School", models.CASCADE, "semesters")
     name = models.CharField(max_length=50)
     start_date = models.DateTimeField()
