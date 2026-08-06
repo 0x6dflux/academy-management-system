@@ -1,9 +1,5 @@
-from __future__ import annotations
-
 from io import StringIO
-from typing import TYPE_CHECKING
 
-from django.contrib.auth import get_user_model
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
@@ -11,14 +7,10 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.views import APIView
 
-from account.models import TeacherProfile
+from account.models import TeacherProfile, User
 from account.views import TeacherProfileAPIView, UserCreateAPIView, UserRetrieveAPIView
 
-if TYPE_CHECKING:
-    from account.models import User
-
-
-USER: User = get_user_model()  # type: ignore
+USER = User
 
 
 class AccountTestCase(TestCase):
@@ -45,31 +37,31 @@ class AccountTestCase(TestCase):
         # ==================
         # Admin
         self.admin = USER.objects.create_user(
-            username="admin_ADM",
-            password="0@dmin",
+            "ADM@example.com",
+            "0@dmin",
             role="ADM",
         )
         # Finance_Officer
         self.finance_officer = USER.objects.create_user(
-            username="mhm_FIO",
-            password="1/fio",
+            "FIO@example.com",
+            "1/fio",
             role="FIO",
         )
         # Education_Officer
         self.education_officer = USER.objects.create_user(
-            username="ftm_EDO",
-            password="2#edo",
+            "EDO@example.com",
+            "2#edo",
             role="EDO",
         )
         # Teacher
         self.teacher1 = USER.objects.create_user(
-            username="mhd_TCH",
-            password="3-tch",
+            "TCH1@example.com",
+            "3-tch",
             role="TCH",
         )
         self.teacher2 = USER.objects.create_user(
-            username="msd_TCH",
-            password="4_tch",
+            "TCH2@example.com",
+            "4_tch",
             role="TCH",
         )
 
@@ -83,11 +75,11 @@ class AccountTestCase(TestCase):
         number_of_users_before_call_command = USER.objects.count()
 
         out = StringIO()
-        kwargs = {"-u": "test_username", "-p": "te$T/12356", "-r": "TCH"}
+        kwargs = {"-e": "test_username@example.com", "-p": "te$T/12356", "-r": "TCH"}
         call_command(
             "create_user",
-            "-u",
-            kwargs["-u"],
+            "-e",
+            kwargs["-e"],
             "-p",
             kwargs["-p"],
             "-r",
@@ -95,12 +87,11 @@ class AccountTestCase(TestCase):
             stdout=out,
         )
 
-        created_user = USER.objects.get(username=kwargs["-u"])
+        created_user = USER.objects.get(email=kwargs["-e"])
         self.assertIn(
-            f"'{kwargs['-u']}' with 'id={created_user.pk}' created successfully.",
+            f"'{kwargs['-e']}' with 'id={created_user.pk}' created successfully.",
             out.getvalue(),
         )
-        # self.assertEqual(created_user.username, kwargs["-u"], "invalid username")
         self.assertTrue(created_user.check_password(kwargs["-p"]), "invalid password")
         self.assertEqual(created_user.role, kwargs["-r"], "invalid role")
         self.assertEqual(
@@ -114,11 +105,11 @@ class AccountTestCase(TestCase):
 
         self.assertRaisesMessage(
             CommandError,
-            "Username is not available!",
+            "Email is not available!",
             call_command,
             "create_user",
-            "-u",
-            "admin_ADM",
+            "-e",
+            "ADM@example.com",
             "-p",
             "0@dmin",
             "-r",
@@ -142,8 +133,8 @@ class AccountTestCase(TestCase):
             "No user with admin role found!",
             call_command,
             "create_user",
-            "-u",
-            "admin_ADM",
+            "-e",
+            "ADM@example.com",
             "-p",
             "0@dmin",
             "-r",
@@ -223,17 +214,17 @@ class AccountTestCase(TestCase):
         view_class = UserCreateAPIView
 
         FIO_body = {
-            "username": "test-finance-officer",
+            "email": "test-finance-officer@example.com",
             "password": "te$t1",
             "role": "FIO",
         }
         EDO_body = {
-            "username": "test-education-officer",
+            "email": "test-education-officer@example.com",
             "password": "te$t2",
             "role": "EDO",
         }
         TCH_body = {
-            "username": "test-teacher",
+            "email": "test-teacher@example.com",
             "password": "te$t3",
             "role": "TCH",
         }
@@ -276,22 +267,22 @@ class AccountTestCase(TestCase):
         self.assertEqual(
             FIO_response.status_code,
             201,
-            f"{FIO_body['username']} has not been created!",
+            f"{FIO_body['email']} has not been created!",
         )
         self.assertEqual(
             EDO_response.status_code,
             201,
-            f"{EDO_body['username']} has not been created!",
+            f"{EDO_body['email']} has not been created!",
         )
         self.assertEqual(
             TCH_response.status_code,
             201,
-            f"{TCH_body['username']} has not been created!",
+            f"{TCH_body['email']} has not been created!",
         )
         self.assertEqual(
-            FIO_response.data["username"],
-            FIO_body["username"],
-            "Invalid FIO username!",
+            FIO_response.data["email"],
+            FIO_body["email"],
+            "Invalid FIO email!",
         )
         self.assertEqual(
             FIO_response.data["role"],
@@ -299,9 +290,9 @@ class AccountTestCase(TestCase):
             "Invalid FIO role!",
         )
         self.assertEqual(
-            EDO_response.data["username"],
-            EDO_body["username"],
-            "Invalid EDO username!",
+            EDO_response.data["email"],
+            EDO_body["email"],
+            "Invalid EDO email!",
         )
         self.assertEqual(
             EDO_response.data["role"],
@@ -309,9 +300,9 @@ class AccountTestCase(TestCase):
             "Invalid EDO role!",
         )
         self.assertEqual(
-            TCH_response.data["username"],
-            TCH_body["username"],
-            "Invalid TCH username!",
+            TCH_response.data["email"],
+            TCH_body["email"],
+            "Invalid TCH email!",
         )
         self.assertEqual(
             TCH_response.data["role"],
@@ -353,9 +344,9 @@ class AccountTestCase(TestCase):
             )
             self.assertEqual(response.status_code, 200, "Unsuccessful")
             self.assertEqual(
-                response.data["username"],
-                user.username,
-                "Invalid username!",
+                response.data["email"],
+                user.email,
+                "Invalid email!",
             )
             self.assertEqual(
                 response.data["role"],
@@ -425,8 +416,8 @@ class AccountTestCase(TestCase):
         body = {
             "first_name": "Mahdi",
             "last_name": "Mohammadi",
-            "phone_number": "09123456789",
-            "emergency_phone_number": "02112345678",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
         }
         view_class = TeacherProfileAPIView
 
@@ -442,7 +433,7 @@ class AccountTestCase(TestCase):
         self.assertEqual(
             response.status_code,
             201,
-            "The response of creating a new profile is not 200!",
+            "The response of creating a new profile is not 201!",
         )
 
         self.assertEqual(
@@ -455,9 +446,8 @@ class AccountTestCase(TestCase):
         self.assertEqual(
             user,
             {
-                "username": self.teacher1.username,
-                "role": self.teacher1.role,
                 "email": self.teacher1.email,
+                "role": self.teacher1.role,
             },
             "Inconsistent user info!",
         )
