@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from account.models import TeacherProfile
-from account.serializers.create_user_serializer import CreateUserSerializer
+from account.serializers.user_serializers import CreateUserSerializer
 from system.validators import (
     _landline_number_validator,
     _mobile_number_validator,

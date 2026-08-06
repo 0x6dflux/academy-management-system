@@ -15,3 +15,9 @@ class CreateUserSerializer(ModelSerializer):
         return USER.objects.create_user(**validated_data)
         # we want to use the manager to save the user, otherwise,
         # it is required to call the `.set_password()` method
+
+
+class UserSerializer(ModelSerializer):
+    class Meta:
+        model = USER
+        fields = ("email", "role")
