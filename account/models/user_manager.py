@@ -3,10 +3,7 @@ from django.contrib.auth.models import UserManager
 from system.models.base_manager import SoftDeleteQuerySet
 
 
-class UserSoftDeleteManager(UserManager.from_queryset(SoftDeleteQuerySet)):  # type: ignore
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
-
+class CreateUserWithEmailMixin:
     # ================================================================================================================
     # tnx to
     # https://github.com/jmfederico/django-use-email-as-username/blob/main/django_use_email_as_username/models.py
@@ -16,10 +13,10 @@ class UserSoftDeleteManager(UserManager.from_queryset(SoftDeleteQuerySet)):  # t
 
         if not email:
             raise ValueError("The given email must be set")
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        email = self.normalize_email(email)  # type: ignore
+        user = self.model(email=email, **extra_fields)  # type: ignore
         user.set_password(password)
-        user.save(using=self._db)
+        user.save(using=self._db)  # type:ignore
         return user
 
     def create_user(self, email, password=None, **extra_fields):
@@ -41,3 +38,18 @@ class UserSoftDeleteManager(UserManager.from_queryset(SoftDeleteQuerySet)):  # t
             raise ValueError("Superuser must have is_superuser=True.")
 
         return self._create_user(email, password, **extra_fields)
+
+
+class UserAllObjectsManager(
+    CreateUserWithEmailMixin,
+    UserManager.from_queryset(SoftDeleteQuerySet),  # type: ignore
+):
+    pass
+
+
+class UserSoftDeleteManager(
+    CreateUserWithEmailMixin,
+    UserManager.from_queryset(SoftDeleteQuerySet),  # type: ignore
+):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)

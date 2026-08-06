@@ -1,11 +1,11 @@
-from django.contrib.auth.models import AbstractUser, UserManager
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-from account.models.user_manager import UserSoftDeleteManager
-from system.models import BaseModel
+from account.models.user_manager import UserAllObjectsManager, UserSoftDeleteManager
+from system.models import SoftDeleteMixin
 
 
-class User(AbstractUser, BaseModel):
+class User(AbstractUser, SoftDeleteMixin):
     class RoleChoices(models.TextChoices):
         TEACHER = "TCH", "Teacher"
         EDUCATION_OFFICER = "EDO", "Education Officer"
@@ -19,8 +19,11 @@ class User(AbstractUser, BaseModel):
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=3, choices=RoleChoices)
 
-    objects = UserSoftDeleteManager()  # type: ignore
-    all_objects = UserManager()  # type: ignore
+    all_objects: UserAllObjectsManager = UserAllObjectsManager()  # type: ignore
+    objects: UserSoftDeleteManager = UserSoftDeleteManager()  # type: ignore
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["role"]
+
+    class Meta:
+        base_manager_name = "all_objects"
