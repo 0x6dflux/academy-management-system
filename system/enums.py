@@ -12,3 +12,18 @@ class SerialNumberAbbreviation(StrEnum):
     COURSE = "CR"
     SESSION = "SS"
     REPORT = "RP"
+
+
+class CountryCallingCodes(StrEnum):
+    """it shall be 3-digit long"""
+
+    IRAN = "098"
+
+
+class MobileNumberPrefixes(StrEnum):
+    IRANCELL = "936"
+    HAMRAHE_AVVAL = "919"
+
+
+class LandlineNumberPrefixes(StrEnum):
+    TEHRAN = "21"
