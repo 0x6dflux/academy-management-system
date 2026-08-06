@@ -7,8 +7,8 @@ from account.permissions import IsEducationOfficerOrAdmin
 
 
 class HomeAPIView(APIView):
-    http_method_names = ["get"]
-    permission_classes = [IsAuthenticated, IsEducationOfficerOrAdmin]
+    http_method_names = ("get",)
+    permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
 
     def get(self, request: Request) -> Response:
         return Response({"message": "Education API"})

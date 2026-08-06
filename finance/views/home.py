@@ -7,8 +7,8 @@ from account.permissions import IsFinanceOfficerOrAdmin
 
 
 class HomeAPIView(APIView):
-    http_method_names = ["get"]
-    permission_classes = [IsAuthenticated, IsFinanceOfficerOrAdmin]
+    http_method_names = ("get",)
+    permission_classes = (IsAuthenticated, IsFinanceOfficerOrAdmin)
 
     def get(self, request: Request) -> Response:
         return Response({"message": "Finance API"})
