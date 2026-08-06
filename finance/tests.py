@@ -42,26 +42,26 @@ class EducationTestCase(TestCase):
         # ==================
         # Admin
         self.admin = USER.objects.create_user(
-            username="admin_ADM",
-            password="0@dmin",
+            "ADM@example.com",
+            "0@dmin",
             role="ADM",
         )
         # Finance_Officer
         self.finance_officer = USER.objects.create_user(
-            username="mhm_FIO",
-            password="1/fio",
+            "FIO@example.com",
+            "1/fio",
             role="FIO",
         )
         # Education_Officer
         self.education_officer = USER.objects.create_user(
-            username="ftm_EDO",
-            password="2#edo",
+            "EDO@example.com",
+            "2#edo",
             role="EDO",
         )
         # Teacher
         self.teacher = USER.objects.create_user(
-            username="mhd_TCH",
-            password="3-tch",
+            "TCH@example.com",
+            "3-tch",
             role="TCH",
         )
 
