@@ -1,27 +1,20 @@
-from __future__ import annotations
-
 from datetime import timedelta
-from typing import TYPE_CHECKING
 
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils.timezone import now
 
-from account.models import TeacherProfile
+from account.models import TeacherProfile, User
 from education.models import (
     Course,
     Report,
     School,
     SchoolContactPerson,
+    Semester,
     Session,
     TeacherCourse,
 )
 
-if TYPE_CHECKING:
-    from account.models import User
-
-
-USER: User = get_user_model()  # type: ignore
+USER = User
 
 
 class SystemTestCase(TestCase):
@@ -31,39 +24,37 @@ class SystemTestCase(TestCase):
         # ==================
         # Admin
         self.admin = USER.objects.create_user(
-            username="admin_ADM",
-            password="0@dmin",
+            "ADM@example.com",
+            "0@dmin",
             role="ADM",
         )
         # Teacher
         self.teacher = USER.objects.create_user(
-            username="mhd_TCH",
-            password="3-tch",
+            "TCH@example.com",
+            "3-tch",
             role="TCH",
-            created_by=self.admin,
-            updated_by=self.admin,
         )
         # Teacher Profile
         self.teacher_profile = TeacherProfile.objects.create(
             user=self.teacher,
             first_name="Mahdi",
             last_name="Mohammadi",
-            phone_number="1",
-            emergency_phone_number="2",
+            mobile_number="0989361234567",
+            landline_number="0982112345678",
             created_by=self.teacher,
             updated_by=self.teacher,
         )
         # Teacher without profile
         self.on_fly_teacher = USER.objects.create_user(
-            "on-the-fly-user",
-            "",
+            "on-the-fly-user@example.com",
             "123",
             role="TCH",
         )
         # School
         self.school = School.objects.create(
             name="Pandi",
-            serial_number="SC0001",
+            email="pandi.com",
+            landline_number="0982112345678",
             created_by=self.admin,
             updated_by=self.admin,
         )
@@ -72,7 +63,9 @@ class SystemTestCase(TestCase):
             school=self.school,
             first_name="Ali",
             last_name="Alizadeh",
-            phone_number="1",
+            school_role=SchoolContactPerson.SchoolRoleChoices.MANAGER,
+            mobile_number="0989191234567",
+            landline_extension_number="1234",
             created_by=self.admin,
             updated_by=self.admin,
         )
@@ -80,70 +73,76 @@ class SystemTestCase(TestCase):
             school=self.school,
             first_name="Majid",
             last_name="Dehghan",
-            phone_number="2",
+            school_role=SchoolContactPerson.SchoolRoleChoices.DEPUTY,
+            mobile_number="0989191234567",
+            landline_extension_number="1234",
             created_by=self.admin,
             updated_by=self.admin,
         )
-        # Academic Class
-        self.academic_class = Course.objects.create(
+        # Semester
+        self.semester = Semester.objects.create(
+            school=self.school,
+            name="spring",
+            start_date=now(),
+            end_date=now() + timedelta(days=90),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        # Course
+        self.course = Course.objects.create(
+            semester=self.semester,
             name="Math",
             level=Course.LevelChoices.BASIC,
-            start_date=now(),
-            end_date=now() + timedelta(days=30),
-            serial_number="AC0001",
+            start_date=now() + timedelta(days=10),
+            end_date=now() + timedelta(days=40),
+            sessions_length=Course.SessionLengthChoices.MIN60,
             created_by=self.admin,
             updated_by=self.admin,
         )
         # Session
         self.session = Session.objects.create(
-            academic_class=self.academic_class,
-            name="Summation",
-            duration=Session.DurationChoices.MIN60,
-            date=now().date(),
-            start_time=now().time(),
-            end_time=(now() + timedelta(hours=1)).time(),
-            serial_number="SS0001",
-            tutorial_summary="The concept of summation has been taught will lots of examples.",
-            number_of_attendees=15,
-            number_of_absentees=2,
+            course=self.course,
+            date=now(),
+            start_time=now(),
+            end_time=now() + timedelta(hours=1),
+            created_by=self.admin,
+            updated_by=self.admin,
         )
-        # Teacher_AcademicClass through table
-        self.tac = TeacherCourse.objects.create(
+        # Teacher_Course through table
+        self.teacher_course = TeacherCourse.objects.create(
             teacher_profile=self.teacher_profile,
-            academic_class=self.academic_class,
+            course=self.course,
             started_at=now(),
-            ended_at=now() + timedelta(hours=1),
+            ended_at=now() + timedelta(days=10),
+            created_by=self.admin,
+            updated_by=self.admin,
         )
         # Report
         self.report = Report.objects.create(
-            teacher_academic_class=self.tac,
             session=self.session,
-            name="Summation Session Report",
-            description="The concept of summation has been taught will lots of examples.",
-            submission_date=now(),
+            teacher_profile=self.teacher_profile,
+            tutorial_summary="The concept of summation has been taught will lots of examples.",
+            number_of_attendees=12,
+            number_of_absentees=3,
             is_delayed=False,
-            serial_number="RP0001",
+            delay_time=0,
+            created_by=self.admin,
+            updated_by=self.admin,
         )
 
     def test_managers(self):
         self.assertEqual(
             TeacherProfile.all_objects.count(),
             TeacherProfile.objects.count(),
-            "Inconsistent users in `all_objects` and `objects` managers before soft deletion!",
+            "Inconsistent users by managers before soft deletion!",
         )
 
         self.assertEqual(
             TeacherProfile.all_objects.get(user=self.teacher),
             TeacherProfile.objects.get(user=self.teacher),
-            f"Inconsistent teacher profile for {self.teacher} user!",
+            f"Inconsistent teacher profile for {self.teacher} user before soft deletion!",
         )
-
-        # not a good test!?
-        # self.assertEqual(
-        #     TeacherProfile.all_objects.all(),
-        #     TeacherProfile.objects.all(),
-        #     "Inconsistent teacher profiles!",
-        # )
 
         TeacherProfile.objects.get(user=self.teacher).soft_delete(updated_by=self.admin)
 
@@ -153,13 +152,19 @@ class SystemTestCase(TestCase):
             user=self.teacher,
         )
 
-    def test_soft_delete(self):
+        self.assertEqual(
+            TeacherProfile.all_objects.get(user=self.teacher),
+            self.teacher_profile,
+            f"Inconsistent teacher profile for {self.teacher} user after soft deletion!",
+        )
+
+    def test_obj_soft_delete(self):
         TeacherProfile.objects.get(user=self.teacher).soft_delete(updated_by=self.admin)
 
         self.assertEqual(
             TeacherProfile.all_objects.count() - 1,
             TeacherProfile.objects.count(),
-            "Inconsistent users in `all_objects` and `objects` managers after soft deletion!",
+            "Inconsistent users count after soft deletion!",
         )
 
         self.assertEqual(
@@ -168,14 +173,26 @@ class SystemTestCase(TestCase):
             f"{self.teacher_profile} profile not soft deleted!",
         )
 
-    def test_cascade_soft_delete(self):
-        number_of_users_before_soft_delete = USER.all_objects.count()
+    def test_queryset_soft_delete(self):
+        TeacherProfile.objects.all().soft_delete(updated_by=self.admin)  # type: ignore
 
+        self.assertEqual(
+            TeacherProfile.all_objects.count() - 1,
+            TeacherProfile.objects.count(),
+            "Inconsistent users count after soft deletion!",
+        )
+
+        self.assertEqual(
+            TeacherProfile.all_objects.get(user=self.teacher).is_deleted,
+            True,
+            f"{self.teacher_profile} profile not soft deleted!",
+        )
+
+    def test_no_relation_field_cascade_soft_delete(self):
         # the related field does not exists
         self.on_fly_teacher.soft_delete(updated_by=self.admin)
-        number_of_users_after_soft_delete = number_of_users_before_soft_delete - 1
         self.assertEqual(
-            number_of_users_after_soft_delete,
+            USER.all_objects.count() - 1,
             USER.objects.count(),
             "The teacher without profile not soft deleted!",
         )
@@ -185,13 +202,13 @@ class SystemTestCase(TestCase):
             "The teacher without profile not soft deleted!",
         )
 
+    def test_one_to_one_relation_field_cascade_soft_delete(self):
         # OnToOne relation
         USER.objects.get(id=self.teacher.pk).soft_delete(updated_by=self.admin)
-        number_of_users_after_soft_delete -= 1
 
         # checking the number of objects
         self.assertEqual(
-            number_of_users_after_soft_delete,
+            USER.all_objects.count() - 1,
             USER.objects.count(),
             "Inconsistent users in `all_objects` and `objects` managers after soft deletion!",
         )
@@ -213,6 +230,7 @@ class SystemTestCase(TestCase):
             f"{self.teacher} profile not soft deleted!",
         )
 
+    def test_one_to_many_relation_field_cascade_soft_delete(self):
         # OneToMany relation
         School.objects.get(id=self.school.pk).soft_delete(updated_by=self.admin)
 
@@ -245,8 +263,8 @@ class SystemTestCase(TestCase):
             f"{self.school_CP2} not soft deleted!",
         )
 
-        # todo: recursive relation
-        Course.objects.get(id=self.academic_class.pk).soft_delete(updated_by=self.admin)
+    def test_recursive_relation_fields_cascade_soft_delete(self):
+        Course.objects.get(id=self.course.pk).soft_delete(updated_by=self.admin)
 
         # checking the number of objects
         self.assertEqual(
@@ -264,16 +282,13 @@ class SystemTestCase(TestCase):
             TeacherCourse.objects.count(),
             "Inconsistent teacher_academic_classes after soft deletion!",
         )
-        self.assertEqual(
-            Report.all_objects.count() - 1,
-            Report.objects.count(),
-            "Inconsistent teacher_academic_classes after soft deletion!",
-        )
+        self.assertEqual(Report.objects.count(), 1, "Inconsistent number of reports!")
+
         # checking the `is_deleted` field
         self.assertEqual(
-            Course.all_objects.get(id=self.academic_class.pk).is_deleted,
+            Course.all_objects.get(id=self.course.pk).is_deleted,
             True,
-            f"{self.academic_class} not soft deleted!",
+            f"{self.course} not soft deleted!",
         )
         self.assertEqual(
             Session.all_objects.get(id=self.session.pk).is_deleted,
@@ -281,12 +296,9 @@ class SystemTestCase(TestCase):
             f"{self.session} not soft deleted!",
         )
         self.assertEqual(
-            TeacherCourse.all_objects.get(id=self.tac.pk).is_deleted,
+            TeacherCourse.all_objects.get(pk=self.teacher_course.pk).is_deleted,
             True,
-            f"{self.tac} not soft deleted!",
+            f"{self.teacher_course} not soft deleted!",
         )
-        self.assertEqual(
-            Report.all_objects.get(id=self.report.pk).is_deleted,
-            True,
-            f"{self.report} not soft deleted!",
-        )
+        with self.assertRaises(AttributeError):
+            Report.objects.get(id=self.report.pk).is_deleted  # type: ignore
