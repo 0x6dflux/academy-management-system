@@ -68,7 +68,7 @@ class TeacherProfileAPIView(APIView):
             many=True,
         )
 
-        result = {"status": HTTP_200_OK, **education_officer_serializer.data}
+        result = {"status": HTTP_200_OK, "profiles": education_officer_serializer.data}
 
         return Response(result, HTTP_200_OK)
 
@@ -157,4 +157,4 @@ class TeacherProfileAPIView(APIView):
             updated_by=request.user
         )
 
-        return Response({"status": HTTP_204_NO_CONTENT}, HTTP_204_NO_CONTENT)
+        return Response(status=HTTP_204_NO_CONTENT)

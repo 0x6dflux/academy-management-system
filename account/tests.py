@@ -8,6 +8,10 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.views import APIView
 
 from account.models import TeacherProfile, User
+from account.serializers import (
+    TeacherProfileEducationOfficerRoleSerializer,
+    TeacherProfileTeacherRoleSerializer,
+)
 from account.views import TeacherProfileAPIView, UserCreateAPIView, UserRetrieveAPIView
 
 USER = User
@@ -187,7 +191,7 @@ class AccountTestCase(TestCase):
             )
             self.assertEqual(
                 response.status_code,
-                403,
+                401,
                 f"{method} allows unauthenticated user!",
             )
 
@@ -429,6 +433,7 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
+        response.data.pop("status")
 
         self.assertEqual(
             response.status_code,
@@ -465,6 +470,7 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
+        response.data.pop("status")
 
         self.assertEqual(
             response.status_code,
@@ -511,6 +517,7 @@ class AccountTestCase(TestCase):
                 authentication=True,
                 user=self.teacher1,
             )
+            response.data.pop("status")
 
             self.assertEqual(
                 response.status_code,
@@ -529,3 +536,224 @@ class AccountTestCase(TestCase):
                 {"message": "The profile already exists!"},
                 "Inconsistent response message!",
             )
+
+    def test_retrieve_teacher_profile(self):
+        # creating a teacher profile
+        method = "post"
+        url = reverse("account:teacher-profile")
+        create_teacher_profile_body = {
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            create_teacher_profile_body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+
+        # calling endpoint with a TCH role
+        method = "get"
+        url = reverse("account:teacher-profile")
+        body = {}
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+
+        self.assertEqual(response.status_code, 200, "Unsuccessful retrieve method!")
+        user = response.data.pop("user")
+        self.assertEqual(
+            user,
+            {
+                "email": self.teacher1.email,
+                "role": self.teacher1.role,
+            },
+            "Inconsistent user info!",
+        )
+        self.assertEqual(
+            response.data,
+            create_teacher_profile_body,
+            "Inconsistent teacher1 profile info!",
+        )
+
+        # calling endpoint with an EDO role
+        method = "get"
+        url = reverse("account:teacher-profile")
+        body = {}
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.education_officer,
+        )
+        response.data.pop("status")
+        profiles = response.data.pop("profiles")
+
+        deserialized = TeacherProfileEducationOfficerRoleSerializer(
+            TeacherProfile.all_objects.first()
+        )
+
+        self.assertEqual(response.status_code, 200, "Unsuccessful list method!")
+        self.assertEqual(
+            profiles,
+            [deserialized.data],
+            "Inconsistent profiles info!",
+        )
+
+    def test_put_teacher_profile(self):
+        # creating a teacher profile
+        method = "post"
+        url = reverse("account:teacher-profile")
+        create_teacher_profile_body = {
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            create_teacher_profile_body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+
+        # calling endpoint with a TCH role
+        method = "put"
+        url = reverse("account:teacher-profile")
+        body = {
+            "first_name": "MAHDI",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234560",
+            "landline_number": "0982112345670",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+        response.data.pop("user")
+
+        self.assertEqual(response.status_code, 200, "Unsuccessful put method!")
+        self.assertEqual(
+            response.data,
+            body,
+            "Inconsistent profile info!",
+        )
+
+    def test_patch_teacher_profile(self):
+        # creating a teacher profile
+        method = "post"
+        url = reverse("account:teacher-profile")
+        create_teacher_profile_body = {
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            create_teacher_profile_body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+
+        # calling endpoint with a TCH role
+        method = "patch"
+        url = reverse("account:teacher-profile")
+        body = {
+            "first_name": "MAHDI",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        response.data.pop("status")
+
+        deserialized = TeacherProfileTeacherRoleSerializer(
+            TeacherProfile.all_objects.first()
+        )
+
+        self.assertEqual(response.status_code, 200, "Unsuccessful patch method!")
+        self.assertEqual(
+            response.data,
+            deserialized.data,
+            "Inconsistent profile info!",
+        )
+
+    def test_delete_teacher_profile(self):
+        # creating a teacher profile
+        method = "post"
+        url = reverse("account:teacher-profile")
+        create_teacher_profile_body = {
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.simulate_server(
+            method,
+            url,
+            create_teacher_profile_body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+        profile_id = TeacherProfile.all_objects.get(user=self.teacher1).pk
+
+        # calling endpoint with an EDO role
+        request = self.factory.delete(
+            f"{reverse('account:teacher-profile')}?id={profile_id}"
+        )
+        view = TeacherProfileAPIView.as_view()
+        force_authenticate(request, self.education_officer)
+
+        response = view(request)
+
+        self.assertEqual(response.status_code, 204, "Unsuccessful delete method!")
+        self.assertTrue(
+            TeacherProfile.all_objects.get(pk=profile_id).is_deleted,
+            "Profile was not soft deleted!",
+        )

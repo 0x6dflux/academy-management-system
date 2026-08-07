@@ -21,11 +21,11 @@ account/permissions/is_teacher_or_education_officer.py      10      0   100%
 account/serializers/__init__.py                              3      0   100%
 account/serializers/teacher_profile_serializers.py          22      0   100%
 account/serializers/user_serializers.py                     14      0   100%
-account/tests.py                                           131     15    89%
+account/tests.py                                           207      0   100%
 account/urls.py                                              4      0   100%
 account/views/__init__.py                                    4      0   100%
 account/views/me_view.py                                    15      0   100%
-account/views/teacher_profile_view.py                       73     35    52%
+account/views/teacher_profile_view.py                       73      7    90%
 account/views/user_create_view.py                           15      0   100%
 config/__init__.py                                           0      0   100%
 config/asgi.py                                               4      4     0%
@@ -84,4 +84,4 @@ system/validators/number_validators.py                      26      5    81%
 system/views/__init__.py                                     0      0   100%
 system/views/home.py                                         0      0   100%
 ----------------------------------------------------------------------------
-TOTAL                                                      984     85    91%
+TOTAL                                                     1060     42    96%
