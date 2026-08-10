@@ -1,21 +1,21 @@
-from typing import Any
+class SetUserModifierMixin:
+    """
+    This mixin sets the `created_by` and `updated_by` fields in a serializer.
+    """
 
-from account.models import User
+    # do not define `.create()` and `.update()` methods here.
+    # due to `MRO` these methods shall be written in the serializer definition block
 
-USER = User
+    def _set_created_by(self, validated_data: dict) -> dict:
+        """Receives user and validated_data in a serializer to set the `created_by` field"""
 
+        validated_data["created_by"] = self.context["request"].user  # type: ignore
 
-def _set_created_by(user: USER, validated_data: Any) -> Any:
-    """Receives user and validated_data in a serializer to set the `created_by` field"""
+        return validated_data
 
-    validated_data["created_by"] = user
+    def _set_updated_by(self, validated_data: dict) -> dict:
+        """Receives user and validated_data in a serializer to set the `updated_by` field"""
 
-    return validated_data
+        validated_data["updated_by"] = self.context["request"].user  # type: ignore
 
-
-def _set_updated_by(user: USER, validated_data: Any) -> Any:
-    """Receives user and validated_data in a serializer to set the `updated_by` field"""
-
-    validated_data["updated_by"] = user
-
-    return validated_data
+        return validated_data

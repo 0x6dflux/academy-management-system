@@ -1,9 +1,7 @@
-from typing import Any
-
 from rest_framework import serializers
 
 from education.models import School, SchoolContactPerson
-from system.utils import _set_created_by, _set_updated_by
+from system.utils import SetUserModifierMixin
 from system.validators import (
     _landline_number_validator,
     _mobile_number_validator,
@@ -11,7 +9,10 @@ from system.validators import (
 )
 
 
-class SchoolContactPersonModelSerializer(serializers.ModelSerializer):
+class SchoolContactPersonModelSerializer(
+    serializers.ModelSerializer,
+    SetUserModifierMixin,
+):
     school = serializers.StringRelatedField()  # type: ignore
     school_id = serializers.PrimaryKeyRelatedField(  # type: ignore
         queryset=School.objects.all(),
@@ -32,14 +33,14 @@ class SchoolContactPersonModelSerializer(serializers.ModelSerializer):
             "school_id",
         )
 
-    def create(self, validated_data: Any) -> Any:
-        validated_data = _set_created_by(self.context["request"].user, validated_data)
-        validated_data = _set_updated_by(self.context["request"].user, validated_data)
+    def create(self, validated_data: dict) -> dict:
+        validated_data = self._set_created_by(validated_data)
+        validated_data = self._set_updated_by(validated_data)
 
         return super().create(validated_data)
 
-    def update(self, instance: Any, validated_data: Any) -> Any:
-        validated_data = _set_updated_by(self.context["request"].user, validated_data)
+    def update(self, instance: SchoolContactPerson, validated_data: dict) -> dict:
+        validated_data = self._set_updated_by(validated_data)
 
         return super().update(instance, validated_data)
 
@@ -53,7 +54,7 @@ class SchoolContactPersonModelSerializer(serializers.ModelSerializer):
         return _mobile_number_validator(value)
 
 
-class SchoolModelSerializer(serializers.ModelSerializer):
+class SchoolModelSerializer(serializers.ModelSerializer, SetUserModifierMixin):
     contact_people = serializers.StringRelatedField(many=True, read_only=True)  # type: ignore
 
     class Meta:
@@ -74,13 +75,13 @@ class SchoolModelSerializer(serializers.ModelSerializer):
     def validate_landline_number(self, value: str) -> str:
         return _landline_number_validator(value)
 
-    def create(self, validated_data: Any) -> Any:
-        validated_data = _set_created_by(self.context["request"].user, validated_data)
-        validated_data = _set_updated_by(self.context["request"].user, validated_data)
+    def create(self, validated_data: dict) -> dict:
+        validated_data = self._set_created_by(validated_data)
+        validated_data = self._set_updated_by(validated_data)
 
         return super().create(validated_data)
 
-    def update(self, instance: Any, validated_data: Any) -> Any:
-        validated_data = _set_updated_by(self.context["request"].user, validated_data)
+    def update(self, instance: School, validated_data: dict) -> dict:
+        validated_data = self._set_updated_by(validated_data)
 
         return super().update(instance, validated_data)
