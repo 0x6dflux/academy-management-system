@@ -200,7 +200,6 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         )
 
         self.assertEqual(response.status_code, 200, "Response status code is not 200!")
-        self.assertEqual(response.data["status"], 200, "Status is not 200!")
         self.assertEqual(
             response.data["message"],
             "Education API",
@@ -232,8 +231,8 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
 
     def test_education_school_contact_person_rejects_unsupported_methods(self):
         urls = (
-            reverse("education:schoolcontactperson-list"),
-            reverse("education:schoolcontactperson-detail", kwargs={"pk": 1}),
+            reverse("education:school-contact-person-list"),
+            reverse("education:school-contact-person-detail", kwargs={"pk": 1}),
         )
         body = {}
 
@@ -362,9 +361,9 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
 
         method = "get"
         urls = (
-            reverse("education:schoolcontactperson-list"),
+            reverse("education:school-contact-person-list"),
             reverse(
-                "education:schoolcontactperson-detail",
+                "education:school-contact-person-detail",
                 kwargs={"pk": school_contact_person_instance.id},
             ),
         )
@@ -460,12 +459,10 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid POST response status_code!",
         )
 
-        self.assertEqual(response.data["status"], 201, "Invalid POST response status!")
-
-        response.data["result"].pop("id")
-        response.data["result"].pop("serial_number")
-        response.data["result"].pop("contact_people")
-        self.assertEqual(response.data["result"], body, "Invalid POST response result!")
+        response.data.pop("id")
+        response.data.pop("serial_number")
+        response.data.pop("contact_people")
+        self.assertEqual(response.data, body, "Invalid POST response result!")
 
         # testing GET (list)
         method = "get"
@@ -484,13 +481,11 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid GET response status_code!",
         )
 
-        self.assertEqual(response.data["status"], 200, "Invalid GET response status!")
-
-        school_instance_id = response.data["results"][0].pop("id")
-        response.data["results"][0].pop("serial_number")
-        response.data["results"][0].pop("contact_people")
+        school_instance_id = response.data[0].pop("id")
+        response.data[0].pop("serial_number")
+        response.data[0].pop("contact_people")
         self.assertEqual(
-            response.data["results"][0],
+            response.data[0],
             body,
             "Invalid GET response results!",
         )
@@ -513,17 +508,11 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid GET-retrieve response status_code!",
         )
 
+        response.data.pop("id")
+        response.data.pop("serial_number")
+        response.data.pop("contact_people")
         self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid GET-retrieve response status!",
-        )
-
-        response.data["result"].pop("id")
-        response.data["result"].pop("serial_number")
-        response.data["result"].pop("contact_people")
-        self.assertEqual(
-            response.data["result"],
+            response.data,
             body,
             "Invalid GET-retrieve response results!",
         )
@@ -545,17 +534,11 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid PUT response status_code!",
         )
 
+        response.data.pop("id")
+        response.data.pop("serial_number")
+        response.data.pop("contact_people")
         self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid PUT response status!",
-        )
-
-        response.data["result"].pop("id")
-        response.data["result"].pop("serial_number")
-        response.data["result"].pop("contact_people")
-        self.assertEqual(
-            response.data["result"],
+            response.data,
             body,
             "Invalid PUT response results!",
         )
@@ -577,18 +560,12 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid PATCH response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid PATCH response status!",
-        )
-
-        response.data["result"].pop("id")
-        response.data["result"].pop("serial_number")
-        response.data["result"].pop("contact_people")
+        response.data.pop("id")
+        response.data.pop("serial_number")
+        response.data.pop("contact_people")
         body["name"] = "RAJAEI"
         self.assertEqual(
-            response.data["result"],
+            response.data,
             body,
             "Invalid PATCH response results!",
         )
@@ -619,7 +596,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             updated_by=self.education_officer,
         )
 
-        url = reverse("education:schoolcontactperson-list")
+        url = reverse("education:school-contact-person-list")
 
         body = {
             "first_name": "Ali",
@@ -656,16 +633,10 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid POST response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            201,
-            "Invalid POST response status!",
-        )
-
-        response.data["result"].pop("id")
+        response.data.pop("id")
 
         self.assertEqual(
-            response.data["result"],
+            response.data,
             expected_response,
             "Invalid POST response result!",
         )
@@ -687,16 +658,10 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid GET response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid GET response status!",
-        )
-
-        contact_person_id = response.data["results"][0].pop("id")
+        contact_person_id = response.data[0].pop("id")
 
         self.assertEqual(
-            response.data["results"][0],
+            response.data[0],
             expected_response,
             "Invalid GET response results!",
         )
@@ -705,7 +670,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         method = "get"
 
         url = reverse(
-            "education:schoolcontactperson-detail",
+            "education:school-contact-person-detail",
             kwargs={"pk": contact_person_id},
         )
 
@@ -723,16 +688,10 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid GET-retrieve response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid GET-retrieve response status!",
-        )
-
-        response.data["result"].pop("id")
+        response.data.pop("id")
 
         self.assertEqual(
-            response.data["result"],
+            response.data,
             expected_response,
             "Invalid GET-retrieve response results!",
         )
@@ -754,16 +713,10 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid PUT response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid PUT response status!",
-        )
-
-        response.data["result"].pop("id")
+        response.data.pop("id")
 
         self.assertEqual(
-            response.data["result"],
+            response.data,
             expected_response,
             "Invalid PUT response results!",
         )
@@ -785,18 +738,12 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid PATCH response status_code!",
         )
 
-        self.assertEqual(
-            response.data["status"],
-            200,
-            "Invalid PATCH response status!",
-        )
-
-        response.data["result"].pop("id")
+        response.data.pop("id")
 
         expected_response["first_name"] = "Mohammad"
 
         self.assertEqual(
-            response.data["result"],
+            response.data,
             expected_response,
             "Invalid PATCH response results!",
         )

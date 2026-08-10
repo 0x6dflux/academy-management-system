@@ -17,6 +17,4 @@ class UserRetrieveAPIView(APIView):
     def get(self, request: Request) -> Response:
         user_serializer = UserSerializer(request.user)
 
-        result = {"status": HTTP_200_OK, **user_serializer.data}
-
-        return Response(result, HTTP_200_OK)
+        return Response(user_serializer.data, HTTP_200_OK)

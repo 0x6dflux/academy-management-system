@@ -10,6 +10,11 @@ USER = User
 
 
 class ModelTestsMixin:
+    """
+    In the `setUp` method of your test class, there shall be an attribute
+    called `self.admin`. This is required to set the `created_by` and `updated_by`.
+    """
+
     def run_model_equal_assertions(self, model, creation_data, _str_) -> None:
         # creating a new model row in database
         creation_data = {
@@ -71,6 +76,11 @@ class ModelTestsMixin:
 
 
 class EndpointTestsMixin:
+    """
+    In the `setUp` method of your test class, there shall be attributes
+    representing `self.factory` and `self.client`.
+    """
+
     def run_server_with_APIRequestFactory(
         self,
         method: str,

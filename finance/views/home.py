@@ -12,4 +12,4 @@ class HomeAPIView(APIView):
     permission_classes = (IsAuthenticated, IsFinanceOfficerOrAdmin)
 
     def get(self, request: Request) -> Response:
-        return Response({"status": HTTP_200_OK, "message": "Finance API"})
+        return Response({"message": "Finance API"}, HTTP_200_OK)

@@ -43,23 +43,18 @@ class TeacherProfileAPIView(APIView):
     def _retrieve(self, request: Request) -> Response:
         queryset = TeacherProfile.objects.filter(user=request.user)  # type: ignore
         if not queryset.exists():
-            return Response(
-                {"status": HTTP_400_BAD_REQUEST, "message": "Create your profile."},
-                HTTP_400_BAD_REQUEST,
-            )
+            return Response({"message": "Create your profile."}, HTTP_400_BAD_REQUEST)
 
         if queryset.count() > 1:
             return Response(
-                {"status": HTTP_400_BAD_REQUEST, "message": "Multiple profiles found!"},
+                {"message": "Multiple profiles found!"},
                 HTTP_400_BAD_REQUEST,
             )
 
         teacher_instance = queryset.first()
         teacher_serializer = TeacherProfileTeacherRoleSerializer(teacher_instance)
 
-        result = {"status": HTTP_200_OK, **teacher_serializer.data}
-
-        return Response(result, HTTP_200_OK)
+        return Response(teacher_serializer.data, HTTP_200_OK)
 
     def _list(self, request: Request) -> Response:
         queryset = TeacherProfile.objects.all()
@@ -68,9 +63,7 @@ class TeacherProfileAPIView(APIView):
             many=True,
         )
 
-        result = {"status": HTTP_200_OK, "profiles": education_officer_serializer.data}
-
-        return Response(result, HTTP_200_OK)
+        return Response(education_officer_serializer.data, HTTP_200_OK)
 
     def _update(self, request: Request, *, partial=False) -> Response:
         teacher_instance = TeacherProfile.objects.get(user=request.user)  # type: ignore
@@ -81,16 +74,12 @@ class TeacherProfileAPIView(APIView):
         )
 
         if not teacher_serializer.is_valid():
-            result = {"status": HTTP_400_BAD_REQUEST, **teacher_serializer.errors}
-
-            return Response(result, HTTP_400_BAD_REQUEST)
+            return Response(teacher_serializer.errors, HTTP_400_BAD_REQUEST)
 
         teacher_serializer.validated_data["updated_by"] = request.user
         teacher_serializer.save()
 
-        result = {"status": HTTP_200_OK, **teacher_serializer.data}
-
-        return Response(result, HTTP_200_OK)
+        return Response(teacher_serializer.data, HTTP_200_OK)
 
     def get(self, request: Request) -> Response:
         # dispatching the request by `request.user`
@@ -111,28 +100,21 @@ class TeacherProfileAPIView(APIView):
 
         if TeacherProfile.objects.filter(user=request.user).exists():  # type: ignore
             return Response(
-                {
-                    "status": HTTP_400_BAD_REQUEST,
-                    "message": "The profile already exists!",
-                },
+                {"message": "The profile already exists!"},
                 HTTP_400_BAD_REQUEST,
             )
 
         teacher_serializer = TeacherProfileTeacherRoleSerializer(data=request.data)
 
         if not teacher_serializer.is_valid():
-            result = {"status": HTTP_400_BAD_REQUEST, **teacher_serializer.errors}
-
-            return Response(result, HTTP_400_BAD_REQUEST)
+            return Response(teacher_serializer.errors, HTTP_400_BAD_REQUEST)
 
         teacher_serializer.validated_data["user"] = request.user
         teacher_serializer.validated_data["created_by"] = request.user
         teacher_serializer.validated_data["updated_by"] = request.user
         teacher_serializer.save()
 
-        result = {"status": HTTP_201_CREATED, **teacher_serializer.data}
-
-        return Response(result, HTTP_201_CREATED)
+        return Response(teacher_serializer.data, HTTP_201_CREATED)
 
     def put(self, request: Request) -> Response:
         return self._update(request)
@@ -146,7 +128,6 @@ class TeacherProfileAPIView(APIView):
         if not teacher_profile_id:
             return Response(
                 {
-                    "status": HTTP_400_BAD_REQUEST,
                     "message": "Pass the teacher profile id by query string!",
                     "example": "/teacher-profile/?id=3",
                 },
