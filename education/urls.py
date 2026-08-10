@@ -5,6 +5,7 @@ from education.views import (
     HomeAPIView,
     SchoolContactPersonModelViewSet,
     SchoolModelViewSet,
+    SemesterModelViewSet,
 )
 
 router = SimpleRouter(use_regex_path=False)
@@ -14,6 +15,7 @@ router.register(
     SchoolContactPersonModelViewSet,
     "school-contact-person",
 )
+router.register("semester", SemesterModelViewSet)
 
 app_name = "education"
 
