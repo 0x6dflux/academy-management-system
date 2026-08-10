@@ -1,21 +1,18 @@
 class SetUserModifierMixin:
     """
-    This mixin sets the `created_by` and `updated_by` fields in a serializer.
+    This mixin automatically sets `created_by` and `updated_by`
+    by hooking into the DRF serializer create/update flow via MRO.
     """
 
-    # do not define `.create()` and `.update()` methods here.
-    # due to `MRO` these methods shall be written in the serializer definition block
+    def create(self, validated_data: dict):
+        if hasattr(self, "context") and "request" in self.context:  # type: ignore
+            validated_data["created_by"] = self.context["request"].user  # type: ignore
+            validated_data["updated_by"] = self.context["request"].user  # type: ignore
 
-    def _set_created_by(self, validated_data: dict) -> dict:
-        """Receives user and validated_data in a serializer to set the `created_by` field"""
+        return super().create(validated_data)  # type: ignore
 
-        validated_data["created_by"] = self.context["request"].user  # type: ignore
+    def update(self, instance, validated_data: dict):
+        if hasattr(self, "context") and "request" in self.context:  # type: ignore
+            validated_data["updated_by"] = self.context["request"].user  # type: ignore
 
-        return validated_data
-
-    def _set_updated_by(self, validated_data: dict) -> dict:
-        """Receives user and validated_data in a serializer to set the `updated_by` field"""
-
-        validated_data["updated_by"] = self.context["request"].user  # type: ignore
-
-        return validated_data
+        return super().update(instance, validated_data)  # type: ignore

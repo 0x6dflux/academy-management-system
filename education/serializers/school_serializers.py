@@ -10,8 +10,8 @@ from system.validators import (
 
 
 class SchoolContactPersonModelSerializer(
-    serializers.ModelSerializer,
     SetUserModifierMixin,
+    serializers.ModelSerializer,
 ):
     school = serializers.StringRelatedField()  # type: ignore
     school_id = serializers.PrimaryKeyRelatedField(  # type: ignore
@@ -33,17 +33,6 @@ class SchoolContactPersonModelSerializer(
             "school_id",
         )
 
-    def create(self, validated_data: dict) -> dict:
-        validated_data = self._set_created_by(validated_data)
-        validated_data = self._set_updated_by(validated_data)
-
-        return super().create(validated_data)
-
-    def update(self, instance: SchoolContactPerson, validated_data: dict) -> dict:
-        validated_data = self._set_updated_by(validated_data)
-
-        return super().update(instance, validated_data)
-
     def validate_first_name(self, value: str) -> str:
         return _name_validator(value)
 
@@ -54,7 +43,7 @@ class SchoolContactPersonModelSerializer(
         return _mobile_number_validator(value)
 
 
-class SchoolModelSerializer(serializers.ModelSerializer, SetUserModifierMixin):
+class SchoolModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
     contact_people = serializers.StringRelatedField(many=True, read_only=True)  # type: ignore
 
     class Meta:
@@ -74,14 +63,3 @@ class SchoolModelSerializer(serializers.ModelSerializer, SetUserModifierMixin):
 
     def validate_landline_number(self, value: str) -> str:
         return _landline_number_validator(value)
-
-    def create(self, validated_data: dict) -> dict:
-        validated_data = self._set_created_by(validated_data)
-        validated_data = self._set_updated_by(validated_data)
-
-        return super().create(validated_data)
-
-    def update(self, instance: School, validated_data: dict) -> dict:
-        validated_data = self._set_updated_by(validated_data)
-
-        return super().update(instance, validated_data)
