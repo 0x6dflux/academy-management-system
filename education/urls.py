@@ -9,11 +9,15 @@ from education.views import (
 
 router = SimpleRouter(use_regex_path=False)
 router.register("school", SchoolModelViewSet)
-router.register("school-contact-person", SchoolContactPersonModelViewSet)
+router.register(
+    "school-contact-person",
+    SchoolContactPersonModelViewSet,
+    "school-contact-person",
+)
 
 app_name = "education"
 
 urlpatterns = [
-    path("", HomeAPIView.as_view(), name="home"),
+    path("home/", HomeAPIView.as_view(), name="home"),
     path("", include(router.urls)),
 ]
