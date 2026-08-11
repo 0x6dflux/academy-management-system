@@ -4,10 +4,12 @@ from education.serializers.school_serializers import (
     SchoolModelSerializer,
 )
 from education.serializers.semester_serializers import SemesterModelSerializer
+from education.serializers.session_serializers import SessionModelSerializer
 
 __all__ = [
     "CourseModelSerializer",
     "SchoolContactPersonModelSerializer",
     "SchoolModelSerializer",
     "SemesterModelSerializer",
+    "SessionModelSerializer",
 ]
