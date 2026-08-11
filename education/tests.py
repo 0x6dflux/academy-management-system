@@ -1,11 +1,11 @@
-from datetime import date
+from datetime import date, time
 
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient, APIRequestFactory
 
 from account.models import User
-from education.models import Course, School, SchoolContactPerson, Semester
+from education.models import Course, School, SchoolContactPerson, Semester, Session
 from education.views import HomeAPIView
 from system.utils import EndpointTestsMixin, ModelTestsMixin
 
@@ -101,6 +101,45 @@ class EducationModelsTestCases(TestCase, ModelTestsMixin):
         }
 
         self.run_model_equal_assertions(Course, course_data, course_data["name"])
+
+    def test_session(self) -> None:
+        school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        semester = Semester.objects.create(
+            school=school,
+            name="First Semester",
+            start_date=date(2026, 9, 23),
+            end_date=date(2027, 1, 20),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        course = Course.objects.create(
+            semester_id=semester.id,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date=date(2026, 10, 1),
+            end_date=date(2027, 1, 10),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        session_data = {
+            "course_id": course.id,
+            "date": date(2026, 10, 15),
+            "start_time": time(10, 0),
+            "end_time": time(11, 30),
+        }
+
+        self.run_model_equal_assertions(Session, session_data, "2026-10-15")
 
 
 class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
@@ -1442,6 +1481,354 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         response.data.pop("serial_number")
 
         expected_response["name"] = "Advanced Python Programming"
+
+        self.assertEqual(
+            response.data,
+            expected_response,
+            "Invalid PATCH response results!",
+        )
+
+        # testing DELETE
+        method = "delete"
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            {},
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            204,
+            "Invalid DELETE response status_code!",
+        )
+
+    def test_education_session_rejects_unsupported_methods(self):
+        urls = (
+            reverse("education:session-list"),
+            reverse("education:session-detail", kwargs={"pk": 1}),
+        )
+        body = {}
+
+        for url in urls:
+            for method in {"head", "options"}:
+                response = self.run_server_with_APIClient(
+                    method,
+                    url,
+                    body,
+                    authentication=True,
+                    user=self.admin,
+                )
+
+                self.assertEqual(
+                    response.status_code,
+                    405,
+                    f"{self.admin} got access with {method}!",
+                )
+
+    def test_education_session_permissions(self):
+        school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        semester = Semester.objects.create(
+            school=school,
+            name="First Semester",
+            start_date="2026-09-23",
+            end_date="2027-01-20",
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        course = Course.objects.create(
+            semester=semester,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date="2026-10-01",
+            end_date="2027-01-10",
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        session = Session.objects.create(
+            course=course,
+            date="2026-10-15",
+            start_time="10:00:00",
+            end_time="11:30:00",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        method = "get"
+
+        urls = (
+            reverse("education:session-list"),
+            reverse(
+                "education:session-detail",
+                kwargs={"pk": session.id},
+            ),
+        )
+
+        body = {}
+
+        for url in urls:
+            # anonymous user
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                401,
+                f"Anonymous user got access with {method}!",
+            )
+
+            # finance officer
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+                authentication=True,
+                user=self.finance_officer,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                403,
+                f"{self.finance_officer} got access with {method}!",
+            )
+
+            # teacher
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+                authentication=True,
+                user=self.teacher,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                403,
+                f"{self.teacher} got access with {method}!",
+            )
+
+            # education officer
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+                authentication=True,
+                user=self.education_officer,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                200,
+                f"{self.education_officer} did not get access with {method}!",
+            )
+
+            # admin
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+                authentication=True,
+                user=self.admin,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                200,
+                f"{self.admin} did not get access with {method}!",
+            )
+
+    def test_education_session(self):
+        school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        semester = Semester.objects.create(
+            school=school,
+            name="First Semester",
+            start_date="2026-09-23",
+            end_date="2027-01-20",
+            is_summer_semester=False,
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        course = Course.objects.create(
+            semester=semester,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date="2026-10-01",
+            end_date="2027-01-10",
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        url = reverse("education:session-list")
+
+        body = {
+            "course_id": course.id,
+            "date": "2026-10-15",
+            "start_time": "10:00:00",
+            "end_time": "11:30:00",
+        }
+
+        expected_response = {
+            "course": str(course),
+            "date": "2026-10-15",
+            "start_time": "10:00:00",
+            "end_time": "11:30:00",
+        }
+
+        # testing POST
+        method = "post"
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            body,
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+            "Invalid POST response status_code!",
+        )
+
+        response.data.pop("id")
+        response.data.pop("serial_number")
+
+        self.assertEqual(
+            response.data,
+            expected_response,
+            "Invalid POST response result!",
+        )
+
+        # testing GET (list)
+        method = "get"
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            {},
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid GET response status_code!",
+        )
+
+        session_instance_id = response.data[0].pop("id")
+        response.data[0].pop("serial_number")
+
+        self.assertEqual(
+            response.data[0],
+            expected_response,
+            "Invalid GET response results!",
+        )
+
+        # testing GET (retrieve)
+        method = "get"
+
+        url = reverse(
+            "education:session-detail",
+            kwargs={"pk": session_instance_id},
+        )
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            {},
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid GET-retrieve response status_code!",
+        )
+
+        response.data.pop("id")
+        response.data.pop("serial_number")
+
+        self.assertEqual(
+            response.data,
+            expected_response,
+            "Invalid GET-retrieve response results!",
+        )
+
+        # testing PUT
+        method = "put"
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            body,
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid PUT response status_code!",
+        )
+
+        response.data.pop("id")
+        response.data.pop("serial_number")
+
+        self.assertEqual(
+            response.data,
+            expected_response,
+            "Invalid PUT response results!",
+        )
+
+        # testing PATCH
+        method = "patch"
+
+        response = self.run_server_with_APIClient(
+            method,
+            url,
+            {"date": "2026-10-20"},
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid PATCH response status_code!",
+        )
+
+        response.data.pop("id")
+        response.data.pop("serial_number")
+
+        expected_response["date"] = "2026-10-20"
 
         self.assertEqual(
             response.data,
