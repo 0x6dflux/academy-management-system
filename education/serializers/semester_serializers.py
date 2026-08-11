@@ -26,6 +26,3 @@ class SemesterModelSerializer(SetUserModifierMixin, serializers.ModelSerializer)
             "serial_number",
         )
         read_only_fields = ("serial_number",)
-
-    def validate_name(self, value: str) -> str:
-        return _name_validator(value)

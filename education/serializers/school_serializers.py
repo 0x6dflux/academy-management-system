@@ -58,8 +58,5 @@ class SchoolModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
         )
         read_only_fields = ("serial_number",)
 
-    def validate_name(self, value: str) -> str:
-        return _name_validator(value)
-
     def validate_landline_number(self, value: str) -> str:
         return _landline_number_validator(value)

@@ -2,7 +2,6 @@ from rest_framework import serializers
 
 from education.models import Course, Semester
 from system.utils import SetUserModifierMixin
-from system.validators.name_validators import _name_validator
 
 
 class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
@@ -27,9 +26,6 @@ class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
             "serial_number",
         )
         read_only_fields = ("serial_number",)
-
-    def validate_name(self, value: str) -> str:
-        return _name_validator(value)
 
     def validate(self, data: dict) -> dict:
         # validation data for `POST`, `PUT`, and `PATCH` methods
