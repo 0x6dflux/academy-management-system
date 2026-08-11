@@ -16,11 +16,11 @@ def get_next_serial() -> int:
 
 class Session(SoftDeleteBaseModel):
     course = models.ForeignKey("education.Course", models.CASCADE, "sessions")
-    date = models.DateTimeField()
+    date = models.DateField()
     # [validation] shall be in the course duration
-    start_time = models.DateTimeField()
+    start_time = models.TimeField()
     # [validation] `start_time.date()` shall be equal to `date`
-    end_time = models.DateTimeField()
+    end_time = models.TimeField()
     # [validation] `end_time.date()` shall be equal to `date`
     # [validation] `end_time - start_time` shall be equal to `sessions_length`
     serial_digit = models.PositiveSmallIntegerField(

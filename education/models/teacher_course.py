@@ -13,9 +13,9 @@ class TeacherCourse(SoftDeleteBaseModel):
         "courses",
     )
     course = models.ForeignKey("education.course", models.CASCADE, "teachers")
-    started_at = models.DateTimeField()
+    started_at = models.DateField()
     # [validation] shall be in the course duration
-    ended_at = models.DateTimeField()
+    ended_at = models.DateField()
     # [validation] shall be in the course duration
 
     # [validation] time intervals shall not overlap each other
