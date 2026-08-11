@@ -2,6 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from education.views import (
+    CourseModelViewSet,
     HomeAPIView,
     SchoolContactPersonModelViewSet,
     SchoolModelViewSet,
@@ -16,6 +17,7 @@ router.register(
     "school-contact-person",
 )
 router.register("semester", SemesterModelViewSet)
+router.register("course", CourseModelViewSet)
 
 app_name = "education"
 
