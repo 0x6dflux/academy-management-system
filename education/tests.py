@@ -238,6 +238,20 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             created_by=self.admin,
             updated_by=self.admin,
         )
+        self.teacher2 = USER.objects.create_user(
+            "TCH2@example.com",
+            "3-tch",
+            role="TCH",
+        )
+        self.teacher_profile2 = TeacherProfile.objects.create(
+            user=self.teacher2,
+            first_name="Mahdi",
+            last_name="Mohammadi",
+            mobile_number="0989361234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
 
         # =================
         # setup the request
@@ -2321,3 +2335,66 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             TeacherCourse.all_objects.filter(id=teacher_course_instance_id).exists(),
             "TeacherCourse item is hard deleted!",
         )
+
+    def test_education_teacher_course_multiple_teachers(self):
+        school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        semester = Semester.objects.create(
+            school=school,
+            name="First Semester",
+            start_date="2026-09-23",
+            end_date="2027-01-20",
+            is_summer_semester=False,
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        course = Course.objects.create(
+            semester=semester,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date="2026-10-01",
+            end_date="2027-01-10",
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.education_officer,
+            updated_by=self.education_officer,
+        )
+
+        url = reverse("education:teacher-course-list")
+
+        body1 = {
+            "teacher_profile_id": self.teacher_profile.id,
+            "course_id": course.id,
+            "started_at": "2026-10-05",
+            "ended_at": "2026-11-05",
+        }
+        body2 = {
+            "teacher_profile_id": self.teacher_profile2.id,
+            "course_id": course.id,
+            "started_at": "2026-11-06",
+            "ended_at": "2026-12-05",
+        }
+
+        response1 = self.run_server_with_APIClient(
+            "post",
+            url,
+            body1,
+            authentication=True,
+            user=self.education_officer,
+        )
+        response2 = self.run_server_with_APIClient(
+            "post",
+            url,
+            body2,
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(response1.status_code, 201, "Unsuccessful POST with body1")
+        self.assertEqual(response2.status_code, 201, "Unsuccessful POST with body2")
