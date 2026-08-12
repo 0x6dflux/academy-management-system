@@ -5,6 +5,7 @@ from education.serializers.school_serializers import (
 )
 from education.serializers.semester_serializers import SemesterModelSerializer
 from education.serializers.session_serializers import SessionModelSerializer
+from education.serializers.teacher_course_serializer import TeacherCourseModelSerializer
 
 __all__ = [
     "CourseModelSerializer",
@@ -12,4 +13,5 @@ __all__ = [
     "SchoolModelSerializer",
     "SemesterModelSerializer",
     "SessionModelSerializer",
+    "TeacherCourseModelSerializer",
 ]

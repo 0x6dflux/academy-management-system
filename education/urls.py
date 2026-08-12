@@ -8,6 +8,7 @@ from education.views import (
     SchoolModelViewSet,
     SemesterModelViewSet,
     SessionModelViewSet,
+    TeacherCourseModelViewSet,
 )
 
 router = SimpleRouter(use_regex_path=False)
@@ -20,6 +21,7 @@ router.register(
 router.register("semester", SemesterModelViewSet)
 router.register("course", CourseModelViewSet)
 router.register("session", SessionModelViewSet)
+router.register("teacher-course", TeacherCourseModelViewSet, "teacher-course")
 
 app_name = "education"
 
