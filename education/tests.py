@@ -743,6 +743,15 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid PATCH response status_code!",
         )
 
+        self.assertFalse(
+            School.objects.filter(id=school_instance_id).exists(),
+            "School item is not soft deleted!",
+        )
+        self.assertTrue(
+            School.all_objects.filter(id=school_instance_id).exists(),
+            "School item is hard deleted!",
+        )
+
     def test_education_school_contact_person(self):
         school = School.objects.create(
             name="Rajaei",
@@ -919,6 +928,15 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             response.status_code,
             204,
             "Invalid DELETE response status_code!",
+        )
+
+        self.assertFalse(
+            SchoolContactPerson.objects.filter(id=contact_person_id).exists(),
+            "SchoolContactPerson item is not soft deleted!",
+        )
+        self.assertTrue(
+            SchoolContactPerson.all_objects.filter(id=contact_person_id).exists(),
+            "SchoolContactPerson item is hard deleted!",
         )
 
     def test_education_semester_rejects_unsupported_methods(self):
@@ -1232,6 +1250,15 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             response.status_code,
             204,
             "Invalid DELETE response status_code!",
+        )
+
+        self.assertFalse(
+            Semester.objects.filter(id=semester_instance_id).exists(),
+            "Semester item is not soft deleted!",
+        )
+        self.assertTrue(
+            Semester.all_objects.filter(id=semester_instance_id).exists(),
+            "Semester item is hard deleted!",
         )
 
     def test_education_course_rejects_unsupported_methods(self):
@@ -1570,6 +1597,15 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             response.status_code,
             204,
             "Invalid DELETE response status_code!",
+        )
+
+        self.assertFalse(
+            Course.objects.filter(id=course_instance_id).exists(),
+            "Course item is not soft deleted!",
+        )
+        self.assertTrue(
+            Course.all_objects.filter(id=course_instance_id).exists(),
+            "Course item is hard deleted!",
         )
 
     def test_education_session_rejects_unsupported_methods(self):
@@ -1920,6 +1956,15 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid DELETE response status_code!",
         )
 
+        self.assertFalse(
+            Session.objects.filter(id=session_instance_id).exists(),
+            "Session item is not soft deleted!",
+        )
+        self.assertTrue(
+            Session.all_objects.filter(id=session_instance_id).exists(),
+            "Session item is hard deleted!",
+        )
+
     def test_education_teacher_course_rejects_unsupported_methods(self):
         urls = (
             reverse("education:teacher-course-list"),
@@ -2266,4 +2311,13 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             response.status_code,
             204,
             "Invalid DELETE response status_code!",
+        )
+
+        self.assertFalse(
+            TeacherCourse.objects.filter(id=teacher_course_instance_id).exists(),
+            "TeacherCourse item is not soft deleted!",
+        )
+        self.assertTrue(
+            TeacherCourse.all_objects.filter(id=teacher_course_instance_id).exists(),
+            "TeacherCourse item is hard deleted!",
         )
