@@ -22,7 +22,7 @@ class TeacherCourseModelSerializer(SetUserModifierMixin, serializers.ModelSerial
     class Meta:
         model = TeacherCourse
         fields = (
-            "pk",
+            "id",
             "teacher_profile",
             "teacher_profile_id",
             "course",

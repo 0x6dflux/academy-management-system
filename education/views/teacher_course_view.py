@@ -1,6 +1,3 @@
-from typing import Any
-
-from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 
@@ -14,17 +11,3 @@ class TeacherCourseModelViewSet(ModelViewSet):
     queryset = TeacherCourse.objects.all()
     serializer_class = TeacherCourseModelSerializer
     permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
-
-    def get_object(self) -> Any:
-        pk = self.kwargs["pk"]
-        teacher_profile_id, course_id = pk.split("__")
-
-        obj = get_object_or_404(
-            TeacherCourse,
-            teacher_profile_id=teacher_profile_id,
-            course_id=course_id,
-        )
-
-        self.check_object_permissions(self.request, obj)
-
-        return obj
