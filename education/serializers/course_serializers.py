@@ -1,21 +1,41 @@
 from rest_framework import serializers
 
-from education.models import Course, Semester
+from account.serializers import TeacherProfileTeacherRoleSerializer
+from education.models import Course, Semester, TeacherCourse
 from system.utils import SetUserModifierMixin
 
 
+class TeacherCourseModelSerializer(serializers.ModelSerializer):
+    teacher = TeacherProfileTeacherRoleSerializer(
+        source="teacher_profile",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TeacherCourse
+        fields = ("teacher", "started_at", "ended_at")
+
+
 class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
+    school = serializers.CharField(read_only=True, source="semester.school.name")
     semester = serializers.StringRelatedField()  # type: ignore
     semester_id = serializers.PrimaryKeyRelatedField(  # type: ignore
         queryset=Semester.objects.all(),
         write_only=True,
         source="semester",
     )
+    # level = serializers.CharField(read_only=True, source="get_level_display")
+    # sessions_length = serializers.CharField(
+    #     read_only=True,
+    #     source="get_sessions_length_display",
+    # )
+    teachers = TeacherCourseModelSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
         fields = (
             "id",
+            "school",
             "semester",
             "semester_id",
             "name",
@@ -24,6 +44,7 @@ class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
             "end_date",
             "sessions_length",
             "serial_number",
+            "teachers",
         )
         read_only_fields = ("serial_number",)
 
