@@ -2398,3 +2398,322 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
 
         self.assertEqual(response1.status_code, 201, "Unsuccessful POST with body1")
         self.assertEqual(response2.status_code, 201, "Unsuccessful POST with body2")
+
+    def test_education_teacher_schedule_rejects_unsupported_methods(self):
+        url = reverse("education:teacher-schedule")
+        body = {}
+
+        for method in self.http_methods - {"get"}:
+            response = self.run_server_with_APIClient(
+                method,
+                url,
+                body,
+                authentication=True,
+                user=self.admin,
+            )
+
+            self.assertEqual(
+                response.status_code,
+                405,
+                f"{self.admin} got access with {method}!",
+            )
+
+    def test_education_teacher_schedule_permissions(self):
+        url = reverse("education:teacher-schedule")
+        body = {}
+
+        # anonymous user
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            body,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            401,
+            "Anonymous user got access with get!",
+        )
+
+        # finance officer
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            body,
+            authentication=True,
+            user=self.finance_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+            f"{self.finance_officer} got access with get!",
+        )
+
+        # education officer
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            body,
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            403,
+            f"{self.education_officer} got access with get!",
+        )
+
+        # teacher
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            body,
+            authentication=True,
+            user=self.teacher,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"{self.teacher} did not get access with get!",
+        )
+
+        # admin
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            body,
+            authentication=True,
+            user=self.admin,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            f"{self.admin} did not get access with get!",
+        )
+
+    def test_education_teacher_schedule(self):
+        school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        semester = Semester.objects.create(
+            school=school,
+            name="First Semester",
+            start_date="2026-09-23",
+            end_date="2027-01-20",
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        course = Course.objects.create(
+            semester=semester,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date="2026-10-01",
+            end_date="2027-01-10",
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        other_course = Course.objects.create(
+            semester=semester,
+            name="Django Programming",
+            level=Course.LevelChoices.ADVANCED,
+            start_date="2026-10-01",
+            end_date="2027-01-10",
+            sessions_length=Course.SessionLengthChoices.MIN120,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=course,
+            started_at="2026-10-05",
+            ended_at="2026-12-20",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile2,
+            course=other_course,
+            started_at="2026-10-05",
+            ended_at="2026-12-20",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        Session.objects.create(
+            course=course,
+            date="2026-10-15",
+            start_time="10:00:00",
+            end_time="11:30:00",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        Session.objects.create(
+            course=course,
+            date="2026-10-22",
+            start_time="10:00:00",
+            end_time="11:30:00",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        Session.objects.create(
+            course=other_course,
+            date="2026-10-20",
+            start_time="14:00:00",
+            end_time="16:00:00",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        url = reverse("education:teacher-schedule")
+
+        # =================
+        # teacher
+        # =================
+
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            {},
+            authentication=True,
+            user=self.teacher,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid teacher response status_code!",
+        )
+
+        self.assertEqual(
+            len(response.data),
+            1,
+            "Teacher received invalid number of courses!",
+        )
+
+        course_data = response.data[0]
+
+        self.assertEqual(
+            course_data["id"],
+            course.id,
+            "Teacher received an invalid course!",
+        )
+
+        self.assertEqual(
+            course_data["name"],
+            "Python Programming",
+            "Invalid course name!",
+        )
+
+        self.assertEqual(
+            course_data["level"],
+            "Basic",
+            "Invalid course level!",
+        )
+
+        self.assertEqual(
+            course_data["start_date"],
+            "2026-10-01",
+            "Invalid course start_date!",
+        )
+
+        self.assertEqual(
+            course_data["end_date"],
+            "2027-01-10",
+            "Invalid course end_date!",
+        )
+
+        self.assertEqual(
+            course_data["sessions_length"],
+            "90 min",
+            "Invalid sessions_length!",
+        )
+
+        self.assertEqual(
+            len(course_data["sessions"]),
+            2,
+            "Teacher received invalid number of sessions!",
+        )
+
+        self.assertEqual(
+            course_data["sessions"][0],
+            {
+                "date": "2026-10-15",
+                "start_time": "10:00:00",
+                "end_time": "11:30:00",
+            },
+            "Invalid first session!",
+        )
+
+        self.assertEqual(
+            course_data["sessions"][1],
+            {
+                "date": "2026-10-22",
+                "start_time": "10:00:00",
+                "end_time": "11:30:00",
+            },
+            "Invalid second session!",
+        )
+
+        # teacher must not receive another teacher's course
+        returned_course_ids = {course["id"] for course in response.data}
+
+        self.assertNotIn(
+            other_course.id,
+            returned_course_ids,
+            "Teacher received another teacher's course!",
+        )
+
+        # =================
+        # admin
+        # =================
+
+        response = self.run_server_with_APIClient(
+            "get",
+            url,
+            {},
+            authentication=True,
+            user=self.admin,
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+            "Invalid admin response status_code!",
+        )
+
+        self.assertEqual(
+            len(response.data),
+            2,
+            "Admin did not receive all courses!",
+        )
+
+        returned_course_ids = {course["id"] for course in response.data}
+
+        self.assertIn(
+            course.id,
+            returned_course_ids,
+            "Admin did not receive teacher's course!",
+        )
+
+        self.assertIn(
+            other_course.id,
+            returned_course_ids,
+            "Admin did not receive the other course!",
+        )
