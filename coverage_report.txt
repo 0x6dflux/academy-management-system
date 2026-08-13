@@ -45,21 +45,23 @@ education/models/school_contact_person.py                   14      0   100%
 education/models/semester.py                                17      0   100%
 education/models/session.py                                 16      0   100%
 education/models/teacher_course.py                          11      0   100%
-education/serializers/__init__.py                            6      0   100%
+education/serializers/__init__.py                            7      0   100%
 education/serializers/course_serializers.py                 26      3    88%
 education/serializers/school_serializers.py                 24      0   100%
 education/serializers/semester_serializers.py               11      0   100%
 education/serializers/session_serializers.py                26      2    92%
 education/serializers/teacher_course_serializer.py          27      3    89%
-education/tests.py                                         487      0   100%
+education/serializers/teacher_schedule_serializer.py        15      0   100%
+education/tests.py                                         551      0   100%
 education/urls.py                                           12      0   100%
-education/views/__init__.py                                  7      0   100%
+education/views/__init__.py                                  8      0   100%
 education/views/course_view.py                              11      0   100%
 education/views/home.py                                     11      0   100%
 education/views/school_view.py                              16      0   100%
 education/views/semester_view.py                            11      0   100%
 education/views/session_view.py                             11      0   100%
 education/views/teacher_course_view.py                      11      0   100%
+education/views/teacher_schedule_view.py                    18      0   100%
 finance/__init__.py                                          0      0   100%
 finance/admin.py                                             1      0   100%
 finance/apps.py                                              3      0   100%
@@ -98,4 +100,4 @@ system/validators/number_validators.py                      26      5    81%
 system/views/__init__.py                                     0      0   100%
 system/views/home.py                                         0      0   100%
 ----------------------------------------------------------------------------
-TOTAL                                                     1744     44    97%
+TOTAL                                                     1843     44    98%
