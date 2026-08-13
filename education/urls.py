@@ -9,6 +9,7 @@ from education.views import (
     SemesterModelViewSet,
     SessionModelViewSet,
     TeacherCourseModelViewSet,
+    TeacherScheduleAPIView,
 )
 
 router = SimpleRouter(use_regex_path=False)
@@ -28,4 +29,9 @@ app_name = "education"
 urlpatterns = [
     path("home/", HomeAPIView.as_view(), name="home"),
     path("", include(router.urls)),
+    path(
+        "teacher-schedule/",
+        TeacherScheduleAPIView.as_view(),
+        name="teacher-schedule",
+    ),
 ]
