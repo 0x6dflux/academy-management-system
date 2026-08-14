@@ -1451,12 +1451,13 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         }
 
         expected_response = {
+            "school": str(school),
             "semester": str(semester),
             "name": "Python Programming",
-            "level": Course.LevelChoices.BASIC,
+            "level": Course.LevelChoices.BASIC.value,
             "start_date": "2026-10-01",
             "end_date": "2027-01-10",
-            "sessions_length": Course.SessionLengthChoices.MIN90,
+            "sessions_length": Course.SessionLengthChoices.MIN90.value,
         }
 
         # testing POST
@@ -1479,6 +1480,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         response.data.pop("id")
         response.data.pop("serial_number")
 
+        response.data.pop("teachers")
         self.assertEqual(
             response.data,
             expected_response,
@@ -1505,6 +1507,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         course_instance_id = response.data[0].pop("id")
         response.data[0].pop("serial_number")
 
+        response.data[0].pop("teachers")
         self.assertEqual(
             response.data[0],
             expected_response,
@@ -1536,6 +1539,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         response.data.pop("id")
         response.data.pop("serial_number")
 
+        response.data.pop("teachers")
         self.assertEqual(
             response.data,
             expected_response,
@@ -1562,6 +1566,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         response.data.pop("id")
         response.data.pop("serial_number")
 
+        response.data.pop("teachers")
         self.assertEqual(
             response.data,
             expected_response,
@@ -1590,6 +1595,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
 
         expected_response["name"] = "Advanced Python Programming"
 
+        response.data.pop("teachers")
         self.assertEqual(
             response.data,
             expected_response,
