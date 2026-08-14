@@ -17,9 +17,9 @@ def get_next_serial() -> int:
 class Semester(SoftDeleteBaseModel):
     school = models.ForeignKey("education.School", models.CASCADE, "semesters")
     name = models.CharField(max_length=50)
-    start_date = models.DateTimeField()
+    start_date = models.DateField()
     # example: 2026-08-04 `00:00:00`
-    end_date = models.DateTimeField()
+    end_date = models.DateField()
     # example: 2026-08-05 `23:59:59`
     is_summer_semester = models.BooleanField(default=False)
     serial_digit = models.PositiveSmallIntegerField(

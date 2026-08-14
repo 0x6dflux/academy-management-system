@@ -1,9 +1,37 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import SimpleRouter
 
-from education.views import HomeAPIView
+from education.views import (
+    CourseModelViewSet,
+    HomeAPIView,
+    SchoolContactPersonModelViewSet,
+    SchoolModelViewSet,
+    SemesterModelViewSet,
+    SessionModelViewSet,
+    TeacherCourseModelViewSet,
+    TeacherScheduleAPIView,
+)
+
+router = SimpleRouter(use_regex_path=False)
+router.register("school", SchoolModelViewSet)
+router.register(
+    "school-contact-person",
+    SchoolContactPersonModelViewSet,
+    "school-contact-person",
+)
+router.register("semester", SemesterModelViewSet)
+router.register("course", CourseModelViewSet)
+router.register("session", SessionModelViewSet)
+router.register("teacher-course", TeacherCourseModelViewSet, "teacher-course")
 
 app_name = "education"
 
 urlpatterns = [
-    path("", HomeAPIView.as_view(), name="home"),
+    path("home/", HomeAPIView.as_view(), name="home"),
+    path("", include(router.urls)),
+    path(
+        "teacher-schedule/",
+        TeacherScheduleAPIView.as_view(),
+        name="teacher-schedule",
+    ),
 ]

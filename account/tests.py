@@ -3,9 +3,7 @@ from io import StringIO
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 from django.urls import reverse
-from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
-from rest_framework.views import APIView
 
 from account.models import TeacherProfile, User
 from account.serializers import (
@@ -13,28 +11,49 @@ from account.serializers import (
     TeacherProfileTeacherRoleSerializer,
 )
 from account.views import TeacherProfileAPIView, UserCreateAPIView, UserRetrieveAPIView
+from system.utils import EndpointTestsMixin, ModelTestsMixin
 
 USER = User
 
 
-class AccountTestCase(TestCase):
-    def simulate_server(
-        self,
-        method: str,
-        url: str,
-        body: dict,
-        view_class: type[APIView],
-        *,
-        authentication=False,
-        user: User | None = None,
-    ) -> Response:
-        request = getattr(self.factory, method)(url, body)
-        view = view_class.as_view()
-        if authentication:
-            force_authenticate(request, user)
+class AccountModelsTestCases(TestCase, ModelTestsMixin):
+    def setUp(self) -> None:
+        self.admin = USER.objects.create_user(
+            "admin-test@example.com",
+            "123",
+            role="ADM",
+        )
 
-        return view(request)
+        self.teacher = USER.objects.create_user("mhd@google.com", "123", role="TCH")
 
+    def test_user(self) -> None:
+        user_instance = USER.objects.get(id=self.teacher.id)
+
+        self.assertEqual(user_instance.email, self.teacher.email, "Inconsistent email!")
+        self.assertEqual(user_instance.role, self.teacher.role, "Inconsistent role!")
+        self.assertEqual(
+            user_instance.password,
+            self.teacher.password,
+            "Inconsistent password!",
+        )
+
+    def test_teacher_profile(self) -> None:
+        profile_data = {
+            "user_id": self.teacher.id,
+            "first_name": "Mahdi",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+
+        self.run_model_equal_assertions(
+            TeacherProfile,
+            profile_data,
+            f"{profile_data['first_name']} {profile_data['last_name']}",
+        )
+
+
+class AccountEndpointsTestCases(TestCase, EndpointTestsMixin):
     def setUp(self) -> None:
         # ==================
         # setup the database
@@ -163,7 +182,7 @@ class AccountTestCase(TestCase):
         view_class = UserCreateAPIView
 
         for method in self.http_methods - {"post"}:
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -183,7 +202,7 @@ class AccountTestCase(TestCase):
 
         for method in self.http_methods:
             # anonymous user
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -197,7 +216,7 @@ class AccountTestCase(TestCase):
 
             # all users except admin
             for user in USER.objects.exclude(role=USER.RoleChoices.ADMIN):
-                response = self.simulate_server(
+                response = self.run_server_with_APIRequestFactory(
                     method,
                     url,
                     {},
@@ -234,7 +253,7 @@ class AccountTestCase(TestCase):
         }
 
         # creating FIO
-        FIO_response = self.simulate_server(
+        FIO_response = self.run_server_with_APIRequestFactory(
             "post",
             url,
             FIO_body,
@@ -244,7 +263,7 @@ class AccountTestCase(TestCase):
         )
 
         # creating EDO
-        EDO_response = self.simulate_server(
+        EDO_response = self.run_server_with_APIRequestFactory(
             "post",
             url,
             EDO_body,
@@ -254,7 +273,7 @@ class AccountTestCase(TestCase):
         )
 
         # creating TCH
-        TCH_response = self.simulate_server(
+        TCH_response = self.run_server_with_APIRequestFactory(
             "post",
             url,
             TCH_body,
@@ -319,7 +338,7 @@ class AccountTestCase(TestCase):
         view_class = UserRetrieveAPIView
 
         for method in self.http_methods - {"get"}:
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -338,7 +357,7 @@ class AccountTestCase(TestCase):
         view_class = UserRetrieveAPIView
 
         for user in USER.objects.all():
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 "get",
                 url,
                 {},
@@ -363,7 +382,7 @@ class AccountTestCase(TestCase):
         view_class = TeacherProfileAPIView
 
         for method in {"head", "options"}:
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -383,7 +402,7 @@ class AccountTestCase(TestCase):
 
         for method in self.http_methods - {"head", "options"}:
             # anonymous user
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -396,7 +415,7 @@ class AccountTestCase(TestCase):
             )
 
             # authenticated user
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 {},
@@ -425,7 +444,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -433,7 +452,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         self.assertEqual(
             response.status_code,
@@ -462,7 +480,7 @@ class AccountTestCase(TestCase):
         number_of_profiles = TeacherProfile.all_objects.count()
 
         # teacher profile exists
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -470,7 +488,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         self.assertEqual(
             response.status_code,
@@ -509,7 +526,7 @@ class AccountTestCase(TestCase):
         ]
 
         for body in bodies:
-            response = self.simulate_server(
+            response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
                 body,
@@ -517,7 +534,6 @@ class AccountTestCase(TestCase):
                 authentication=True,
                 user=self.teacher1,
             )
-            response.data.pop("status")
 
             self.assertEqual(
                 response.status_code,
@@ -549,7 +565,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             create_teacher_profile_body,
@@ -557,7 +573,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         # calling endpoint with a TCH role
         method = "get"
@@ -565,7 +580,7 @@ class AccountTestCase(TestCase):
         body = {}
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -573,7 +588,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         self.assertEqual(response.status_code, 200, "Unsuccessful retrieve method!")
         user = response.data.pop("user")
@@ -597,7 +611,7 @@ class AccountTestCase(TestCase):
         body = {}
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -605,8 +619,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.education_officer,
         )
-        response.data.pop("status")
-        profiles = response.data.pop("profiles")
 
         deserialized = TeacherProfileEducationOfficerRoleSerializer(
             TeacherProfile.all_objects.first()
@@ -614,7 +626,7 @@ class AccountTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200, "Unsuccessful list method!")
         self.assertEqual(
-            profiles,
+            response.data,
             [deserialized.data],
             "Inconsistent profiles info!",
         )
@@ -631,7 +643,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             create_teacher_profile_body,
@@ -639,7 +651,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         # calling endpoint with a TCH role
         method = "put"
@@ -652,7 +663,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -660,7 +671,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
         response.data.pop("user")
 
         self.assertEqual(response.status_code, 200, "Unsuccessful put method!")
@@ -682,7 +692,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             create_teacher_profile_body,
@@ -690,7 +700,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         # calling endpoint with a TCH role
         method = "patch"
@@ -700,7 +709,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             body,
@@ -708,7 +717,6 @@ class AccountTestCase(TestCase):
             authentication=True,
             user=self.teacher1,
         )
-        response.data.pop("status")
 
         deserialized = TeacherProfileTeacherRoleSerializer(
             TeacherProfile.all_objects.first()
@@ -733,7 +741,7 @@ class AccountTestCase(TestCase):
         }
         view_class = TeacherProfileAPIView
 
-        response = self.simulate_server(
+        response = self.run_server_with_APIRequestFactory(
             method,
             url,
             create_teacher_profile_body,
