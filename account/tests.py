@@ -381,7 +381,7 @@ class AccountEndpointsTestCases(TestCase, EndpointTestsMixin):
         url = reverse("account:teacher-profile")
         view_class = TeacherProfileAPIView
 
-        for method in {"head", "options"}:
+        for method in ("head", "options"):
             response = self.run_server_with_APIRequestFactory(
                 method,
                 url,
@@ -765,3 +765,178 @@ class AccountEndpointsTestCases(TestCase, EndpointTestsMixin):
             TeacherProfile.all_objects.get(pk=profile_id).is_deleted,
             "Profile was not soft deleted!",
         )
+
+
+class AccountTeacherProfileEdgeCasesTestCase(TestCase, EndpointTestsMixin):
+    def setUp(self):
+        self.admin = USER.objects.create_user("ADM@example.com", "0@dmin", role="ADM")
+        self.education_officer = USER.objects.create_user(
+            "EDO@example.com", "2#edo", role="EDO"
+        )
+        self.teacher_no_profile = USER.objects.create_user(
+            "no-profile@example.com", "123", role="TCH"
+        )
+        self.teacher1 = USER.objects.create_user(
+            "TCH1@example.com", "3-tch", role="TCH"
+        )
+        self.factory = APIRequestFactory()
+
+    def test_teacher_get_no_profile(self):
+        url = reverse("account:teacher-profile")
+        view_class = TeacherProfileAPIView
+
+        response = self.run_server_with_APIRequestFactory(
+            "get",
+            url,
+            {},
+            view_class,
+            authentication=True,
+            user=self.teacher_no_profile,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {"message": "Create your profile."})
+
+    def test_delete_without_id_query_param(self):
+        url = reverse("account:teacher-profile")
+        view_class = TeacherProfileAPIView
+
+        response = self.run_server_with_APIRequestFactory(
+            "delete",
+            url,
+            {},
+            view_class,
+            authentication=True,
+            user=self.education_officer,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("message", response.data)
+        self.assertIn("example", response.data)
+
+    def test_delete_nonexistent_profile_id(self):
+        request = self.factory.delete(f"{reverse('account:teacher-profile')}?id=99999")
+        view = TeacherProfileAPIView.as_view()
+        force_authenticate(request, self.education_officer)
+
+        self.assertRaises(
+            TeacherProfile.DoesNotExist,
+            lambda: view(request),
+        )
+
+    def test_admin_can_create_teacher_profile(self):
+        method = "post"
+        url = reverse("account:teacher-profile")
+        body = {
+            "first_name": "Admin",
+            "last_name": "User",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.run_server_with_APIRequestFactory(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.admin,
+        )
+
+        self.assertEqual(response.status_code, 201)
+
+    def test_teacher_profile_create_validates_name_with_digits(self):
+        method = "post"
+        url = reverse("account:teacher-profile")
+        body = {
+            "first_name": "Mahdi123",
+            "last_name": "Mohammadi",
+            "mobile_number": "0989361234567",
+            "landline_number": "0982112345678",
+        }
+        view_class = TeacherProfileAPIView
+
+        response = self.run_server_with_APIRequestFactory(
+            method,
+            url,
+            body,
+            view_class,
+            authentication=True,
+            user=self.teacher1,
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+
+class AccountUserManagerTestCase(TestCase):
+    def test_create_superuser_flags(self):
+        superuser = USER.objects.create_superuser(
+            "super@example.com", "superpass", role="ADM"
+        )
+        self.assertTrue(superuser.is_staff, "Superuser should have is_staff=True")
+        self.assertTrue(
+            superuser.is_superuser, "Superuser should have is_superuser=True"
+        )
+
+    def test_create_user_with_valid_data(self):
+        user = USER.objects.create_user("new@example.com", "password123", role="TCH")
+        self.assertEqual(user.email, "new@example.com")
+        self.assertEqual(user.role, "TCH")
+        self.assertTrue(user.check_password("password123"))
+        self.assertFalse(user.is_staff)
+
+    def test_create_superuser_with_none_email(self):
+        self.assertRaises(
+            ValueError,
+            USER.objects.create_superuser,
+            None,
+            "password",
+            role="ADM",
+        )
+
+    def test_manager_objects_excludes_deleted(self):
+        user = USER.objects.create_user("deleted@example.com", "123", role="TCH")
+        count_before = USER.objects.count()
+        user.soft_delete(updated_by=user)
+        self.assertEqual(USER.objects.count(), count_before - 1)
+
+    def test_manager_all_objects_includes_deleted(self):
+        user = USER.objects.create_user("deleted2@example.com", "123", role="TCH")
+        count_before = USER.all_objects.count()
+        user.soft_delete(updated_by=user)
+        self.assertEqual(USER.all_objects.count(), count_before)
+
+
+class AccountManagementCommandEdgeCasesTestCase(TestCase):
+    def setUp(self):
+        self.admin = USER.objects.create_user("admin@example.com", "123", role="ADM")
+
+    def test_create_user_with_invalid_email(self):
+        self.assertRaisesMessage(
+            CommandError,
+            "Invalid email address!",
+            call_command,
+            "create_user",
+            "-e",
+            "invalid-email",
+            "-p",
+            "te$t1234",
+            "-r",
+            "TCH",
+        )
+
+    def test_create_user_with_short_password(self):
+        out = StringIO()
+        call_command(
+            "create_user",
+            "-e",
+            "short@example.com",
+            "-p",
+            "ab",
+            "-r",
+            "TCH",
+            stdout=out,
+        )
+        user = USER.objects.get(email="short@example.com")
+        self.assertTrue(user.check_password("ab"))
