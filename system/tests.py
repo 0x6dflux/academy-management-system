@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.test import TestCase
 from django.utils.timezone import now
+from rest_framework import serializers
 
 from account.models import TeacherProfile, User
 from education.models import (
@@ -12,6 +13,12 @@ from education.models import (
     Semester,
     Session,
     TeacherCourse,
+)
+from system.custom_renderers import CustomJSONRenderer
+from system.validators import (
+    _landline_number_validator,
+    _mobile_number_validator,
+    _name_validator,
 )
 
 USER = User
@@ -302,3 +309,194 @@ class SystemTestCase(TestCase):
         )
         with self.assertRaises(AttributeError):
             Report.objects.get(id=self.report.pk).is_deleted  # type: ignore
+
+
+class SystemValidatorsTestCase(TestCase):
+    def test_name_validator_valid_no_space(self):
+        result = _name_validator("Mahdi")
+        self.assertEqual(result, "Mahdi")
+
+    def test_name_validator_valid_one_space(self):
+        result = _name_validator("Mahdi Mohammadi")
+        self.assertEqual(result, "Mahdi Mohammadi")
+
+    def test_name_validator_invalid_two_spaces(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _name_validator("Mahdi Ali Mohammadi")
+        self.assertEqual(
+            ctx.exception.detail[0],  # type: ignore
+            "Invalid number of spaces in name!",
+        )
+
+    def test_name_validator_invalid_digits(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _name_validator("Mahdi123")
+        self.assertEqual(ctx.exception.detail[0], "Invalid name!")  # type: ignore
+
+    def test_name_validator_invalid_special_chars(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _name_validator("Mahdi@")
+        self.assertEqual(ctx.exception.detail[0], "Invalid name!")  # type: ignore
+
+    def test_name_validator_empty_string(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _name_validator("")
+        self.assertEqual(ctx.exception.detail[0], "Invalid name!")  # type: ignore
+
+    def test_name_validator_only_spaces(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _name_validator("   ")
+        self.assertEqual(
+            ctx.exception.detail[0],  # type: ignore
+            "Invalid number of spaces in name!",
+        )
+
+    def test_mobile_number_valid(self):
+        result = _mobile_number_validator("0989361234567")
+        self.assertEqual(result, "0989361234567")
+
+    def test_mobile_number_valid_hamrahe_avval(self):
+        result = _mobile_number_validator("0989191234567")
+        self.assertEqual(result, "0989191234567")
+
+    def test_mobile_number_invalid_not_digits(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _mobile_number_validator("098abcdefghi")
+        self.assertEqual(ctx.exception.detail[0], "Invalid number!")  # type: ignore
+
+    def test_mobile_number_invalid_length_short(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _mobile_number_validator("098936")
+        self.assertEqual(ctx.exception.detail[0], "Invalid number length!")  # type: ignore
+
+    def test_mobile_number_invalid_length_long(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _mobile_number_validator("09893612345678901")
+        self.assertEqual(ctx.exception.detail[0], "Invalid number length!")  # type: ignore
+
+    def test_mobile_number_invalid_country_code(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _mobile_number_validator("1239361234567")
+        self.assertEqual(ctx.exception.detail[0], "Invalid country calling code!")  # type: ignore
+
+    def test_mobile_number_invalid_prefix(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _mobile_number_validator("0989991234567")
+        self.assertEqual(ctx.exception.detail[0], "Invalid mobile number prefix!")  # type: ignore
+
+    def test_landline_number_valid(self):
+        result = _landline_number_validator("0982112345678")
+        self.assertEqual(result, "0982112345678")
+
+    def test_landline_number_invalid_country_code(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _landline_number_validator("1232112345678")
+        self.assertEqual(ctx.exception.detail[0], "Invalid country calling code!")  # type: ignore
+
+    def test_landline_number_invalid_prefix(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _landline_number_validator("0989912345678")
+        self.assertEqual(ctx.exception.detail[0], "Invalid landline number prefix!")  # type: ignore
+
+    def test_landline_number_invalid_not_digits(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _landline_number_validator("098abcdefghijkl")
+        self.assertEqual(ctx.exception.detail[0], "Invalid number!")  # type: ignore
+
+    def test_landline_number_invalid_length(self):
+        with self.assertRaises(serializers.ValidationError) as ctx:
+            _landline_number_validator("09821")
+        self.assertEqual(ctx.exception.detail[0], "Invalid number length!")  # type: ignore
+
+
+class SystemCustomRendererTestCase(TestCase):
+    def test_render_dict_response(self):
+        renderer = CustomJSONRenderer()
+        data = {"email": "test@example.com", "role": "TCH"}
+        context = {"response": type("obj", (), {"status_code": 200})()}
+        result = renderer.render(data, renderer_context=context)
+        import json
+
+        rendered = json.loads(result)
+        self.assertEqual(rendered["status"], 200)
+        self.assertEqual(rendered["result"], data)
+        self.assertNotIn("results", rendered)
+
+    def test_render_list_response(self):
+        renderer = CustomJSONRenderer()
+        data = [{"id": 1, "name": "School A"}, {"id": 2, "name": "School B"}]
+        context = {"response": type("obj", (), {"status_code": 200})()}
+        result = renderer.render(data, renderer_context=context)
+        import json
+
+        rendered = json.loads(result)
+        self.assertEqual(rendered["status"], 200)
+        self.assertEqual(rendered["results"], data)
+        self.assertNotIn("result", rendered)
+
+    def test_render_none_response_context(self):
+        renderer = CustomJSONRenderer()
+        data = {"key": "value"}
+        context = {"response": None}
+        result = renderer.render(data, renderer_context=context)
+        import json
+
+        rendered = json.loads(result)
+        self.assertEqual(rendered, data)
+
+
+class SystemSoftDeleteIdempotencyTestCase(TestCase):
+    def setUp(self):
+        self.admin = USER.objects.create_user("admin@example.com", "123", role="ADM")
+        self.teacher = USER.objects.create_user(
+            "teacher@example.com", "123", role="TCH"
+        )
+        self.teacher_profile = TeacherProfile.objects.create(
+            user=self.teacher,
+            first_name="Mahdi",
+            last_name="Mohammadi",
+            mobile_number="0989361234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+    def test_soft_delete_already_deleted_object(self):
+        self.teacher_profile.soft_delete(updated_by=self.admin)
+        updated_by_after_first = self.teacher_profile.updated_by
+
+        self.teacher_profile.soft_delete(updated_by=self.teacher)
+        self.teacher_profile.refresh_from_db()
+
+        self.assertEqual(
+            self.teacher_profile.updated_by,
+            updated_by_after_first,
+            "Idempotent soft_delete should not overwrite updated_by!",
+        )
+
+    def test_queryset_soft_delete_mixed_states(self):
+        teacher2 = USER.objects.create_user("teacher2@example.com", "123", role="TCH")
+        profile2 = TeacherProfile.objects.create(
+            user=teacher2,
+            first_name="Ali",
+            last_name="Alizadeh",
+            mobile_number="0989191234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.teacher_profile.soft_delete(updated_by=self.admin)
+
+        TeacherProfile.all_objects.filter(is_deleted=False).soft_delete(  # type: ignore
+            updated_by=self.teacher
+        )
+
+        self.assertTrue(
+            TeacherProfile.all_objects.get(user=self.teacher).is_deleted,
+            "Already soft-deleted object should still be marked deleted!",
+        )
+        self.assertTrue(
+            TeacherProfile.all_objects.get(user=teacher2).is_deleted,
+            "Non-deleted object should be soft deleted!",
+        )
