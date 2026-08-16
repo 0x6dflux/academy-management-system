@@ -56,6 +56,11 @@ class SessionModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
                 "Session date shall be within the course duration!"
             )
 
+        if not start_time < end_time:
+            raise serializers.ValidationError(
+                "Session shall not end before start_time!"
+            )
+
         if (end_time - start_time).seconds != course.sessions_length * 60:  # type: ignore
             raise serializers.ValidationError("Invalid session length!")
 
