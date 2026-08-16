@@ -66,20 +66,17 @@ class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
             # [HINT] due to `source="semester"` at line 13, the DRF will set the
             # semester object on `data` with `semester` key.
 
-        if start_date and end_date and semester:
-            if not start_date <= end_date:
-                raise serializers.ValidationError(
-                    "Course shall not end before start_date!"
-                )
+        if not start_date <= end_date:  # type: ignore
+            raise serializers.ValidationError("Course shall not end before start_date!")
 
-            if not semester.start_date <= start_date <= semester.end_date:
-                raise serializers.ValidationError(
-                    "Course start_date shall be within the semester duration!"
-                )
+        if not semester.start_date <= start_date <= semester.end_date:  # type: ignore
+            raise serializers.ValidationError(
+                "Course start_date shall be within the semester duration!"
+            )
 
-            if not semester.start_date <= end_date <= semester.end_date:
-                raise serializers.ValidationError(
-                    "Course end_date shall be within the semester duration!"
-                )
+        if not semester.start_date <= end_date <= semester.end_date:  # type: ignore
+            raise serializers.ValidationError(
+                "Course end_date shall be within the semester duration!"
+            )
 
         return data
