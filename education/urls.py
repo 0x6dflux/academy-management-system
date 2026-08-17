@@ -4,6 +4,7 @@ from rest_framework.routers import SimpleRouter
 from education.views import (
     CourseModelViewSet,
     HomeAPIView,
+    ReportCustomModelViewSet,
     SchoolContactPersonModelViewSet,
     SchoolModelViewSet,
     SemesterModelViewSet,
@@ -23,6 +24,7 @@ router.register("semester", SemesterModelViewSet)
 router.register("course", CourseModelViewSet)
 router.register("session", SessionModelViewSet)
 router.register("teacher-course", TeacherCourseModelViewSet, "teacher-course")
+router.register("report", ReportCustomModelViewSet)
 
 app_name = "education"
 
