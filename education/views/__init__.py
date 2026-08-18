@@ -1,6 +1,9 @@
 from education.views.course_view import CourseModelViewSet
 from education.views.home import HomeAPIView
-from education.views.report_view import ReportCustomModelViewSet
+from education.views.report_view import (
+    ReportCustomModelViewSet,
+    ReportReviewCustomModelViewSet,
+)
 from education.views.school_view import (
     SchoolContactPersonModelViewSet,
     SchoolModelViewSet,
@@ -14,6 +17,7 @@ __all__ = [
     "CourseModelViewSet",
     "HomeAPIView",
     "ReportCustomModelViewSet",
+    "ReportReviewCustomModelViewSet",
     "SchoolContactPersonModelViewSet",
     "SchoolModelViewSet",
     "SemesterModelViewSet",

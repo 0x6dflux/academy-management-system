@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 # from account.models import TeacherProfile
 from config.settings import TIME_ZONE
-from education.models import Report, Session
+from education.models import Report, ReportHistory, Session
 from system.utils import SetUserModifierMixin
 
 
@@ -16,12 +16,6 @@ class ReportTCHRoleModelSerializer(SetUserModifierMixin, serializers.ModelSerial
         write_only=True,
         source="session",
     )
-    # teacher_profile = serializers.StringRelatedField()  # type: ignore
-    # teacher_profile_id = serializers.PrimaryKeyRelatedField(  # type: ignore
-    #     queryset=TeacherProfile.objects.all(),
-    #     write_only=True,
-    #     source="teacher_profile",
-    # )
 
     class Meta:
         model = Report
@@ -29,8 +23,6 @@ class ReportTCHRoleModelSerializer(SetUserModifierMixin, serializers.ModelSerial
             "id",
             "session",
             "session_id",
-            # "teacher_profile",
-            # "teacher_profile_id",
             "tutorial_summary",
             "number_of_attendees",
             "number_of_absentees",
@@ -88,5 +80,54 @@ class ReportTCHRoleModelSerializer(SetUserModifierMixin, serializers.ModelSerial
             return super().update(instance, validated_data)
         else:
             raise serializers.ValidationError(
-                "This report cannot be updated while it is pending review by the education officer."
+                "This report cannot be updated once it is under review or has been approved."
             )
+
+
+class ReportEDORoleModelSerializer(serializers.ModelSerializer):
+    """This serializer is for reading mode."""
+
+    report = ReportTCHRoleModelSerializer(read_only=True)
+    report_id = serializers.PrimaryKeyRelatedField(
+        queryset=Report.objects.all(),
+        write_only=True,
+        source="report",
+    )
+    change = serializers.CharField(
+        read_only=True,
+        source="get_change_display",
+        label="Latest Status",
+    )
+    is_approved = serializers.BooleanField(write_only=True)
+    description = serializers.CharField(allow_blank=True)
+
+    class Meta:
+        model = ReportHistory
+        fields = (
+            # "id",  # to not allow updating
+            "report",
+            "report_id",
+            "change",
+            "is_approved",
+            "description",
+        )
+
+    def validate(self, data: dict) -> dict:
+        if data["is_approved"] == False and data["description"] is None:
+            raise serializers.ValidationError(
+                "Description shall not be blank if the report is not approved."
+            )
+
+        return data
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        validated_data["role"] = self.context["request"].user.role
+
+        is_report_approved = validated_data.pop("is_approved")
+        if is_report_approved:
+            validated_data["change"] = ReportHistory.ChangeChoices.APPROVED
+        else:
+            validated_data["change"] = ReportHistory.ChangeChoices.REJECTED
+
+        return super().create(validated_data)

@@ -9,9 +9,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.serializers import BaseSerializer
 from rest_framework.viewsets import GenericViewSet
 
-from account.permissions import IsTeacherOrAdmin
+from account.permissions import IsEducationOfficerOrAdmin, IsTeacherOrAdmin
 from education.models import Report, ReportHistory
-from education.serializers import ReportTCHRoleModelSerializer
+from education.serializers import (
+    ReportEDORoleModelSerializer,
+    ReportTCHRoleModelSerializer,
+)
 
 
 class ReportCustomModelViewSet(
@@ -50,3 +53,16 @@ class ReportCustomModelViewSet(
             role=self.request.user.role,  # type: ignore
             change=ReportHistory.ChangeChoices.UPDATED,
         )
+
+
+class ReportReviewCustomModelViewSet(
+    CreateModelMixin,
+    ListModelMixin,
+    RetrieveModelMixin,
+    UpdateModelMixin,
+    GenericViewSet,
+):
+    http_method_names = ("get", "post")
+    queryset = ReportHistory.objects.all()
+    serializer_class = ReportEDORoleModelSerializer
+    permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)

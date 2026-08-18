@@ -1,5 +1,8 @@
 from education.serializers.course_serializers import CourseModelSerializer
-from education.serializers.report_serializers import ReportTCHRoleModelSerializer
+from education.serializers.report_serializers import (
+    ReportEDORoleModelSerializer,
+    ReportTCHRoleModelSerializer,
+)
 from education.serializers.school_serializers import (
     SchoolContactPersonModelSerializer,
     SchoolModelSerializer,
@@ -13,6 +16,7 @@ from education.serializers.teacher_schedule_serializer import (
 
 __all__ = [
     "CourseModelSerializer",
+    "ReportEDORoleModelSerializer",
     "ReportTCHRoleModelSerializer",
     "SchoolContactPersonModelSerializer",
     "SchoolModelSerializer",
