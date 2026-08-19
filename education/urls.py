@@ -4,6 +4,7 @@ from rest_framework.routers import SimpleRouter
 from education.views import (
     CourseModelViewSet,
     HomeAPIView,
+    ReportBulkApprovalAPIView,
     ReportCustomModelViewSet,
     ReportHistoryCustomModelViewSet,
     SchoolContactPersonModelViewSet,
@@ -34,6 +35,11 @@ app_name = "education"
 urlpatterns = [
     path("home/", HomeAPIView.as_view(), name="home"),
     path("", include(router.urls)),
+    path(
+        "report-bulk-approval/",
+        ReportBulkApprovalAPIView.as_view(),
+        name="report-bulk-approval",
+    ),
     path(
         "teacher-schedule/",
         TeacherScheduleAPIView.as_view(),

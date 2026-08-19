@@ -9,6 +9,10 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.status import HTTP_201_CREATED
+from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from account.models import User
@@ -18,6 +22,7 @@ from account.permissions import (
 )
 from education.models import Report, ReportHistory
 from education.serializers import (
+    ReportBulkApprovalSerializer,
     ReportHistoryModelSerializer,
     ReportReadOnlyModelSerializer,
     ReportReviewWriteOnlyModelSerializer,
@@ -118,6 +123,49 @@ class ReportCustomModelViewSet(
                 role=self.request.user.role,  # type: ignore
                 change=ReportHistory.ChangeChoices.UPDATED,
             )
+
+
+class ReportBulkApprovalAPIView(APIView):
+    http_method_names = ("post",)
+    permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
+
+    # def get_queryset(self):
+    #     return Report.objects.annotate(
+    #         latest_change=Subquery(
+    #             ReportHistory.objects.filter(report=OuterRef("pk"))
+    #             .order_by("-id")
+    #             .values("change")[:1]
+    #         )
+    #     ).exclude(
+    #         latest_change__in=(
+    #             ReportHistory.ChangeChoices.APPROVED,
+    #             ReportHistory.ChangeChoices.REJECTED,
+    #         )
+    #     )
+
+    # def get(self, request: Request) -> Response:
+    #     bulk_serializer = ReportBulkApprovalSerializer(self.get_queryset(), many=True)
+
+    #     return Response(bulk_serializer.data)
+
+    def post(self, request: Request) -> Response:
+        bulk_serializer = ReportBulkApprovalSerializer(data=request.data)
+        bulk_serializer.is_valid(raise_exception=True)
+
+        reports = bulk_serializer.validated_data["reports"]
+
+        # transaction atomic!!
+        ReportHistory.objects.bulk_create(
+            ReportHistory(
+                report=report,
+                user=request.user,  # type: ignore
+                role=request.user.role,  # type: ignore
+                change=ReportHistory.ChangeChoices.APPROVED,
+            )
+            for report in reports
+        )
+
+        return Response(bulk_serializer.data, HTTP_201_CREATED)
 
 
 class ReportHistoryCustomModelViewSet(

@@ -1,5 +1,6 @@
 from education.serializers.course_serializers import CourseModelSerializer
 from education.serializers.report_serializers import (
+    ReportBulkApprovalSerializer,
     ReportHistoryModelSerializer,
     ReportReadOnlyModelSerializer,
     ReportReviewWriteOnlyModelSerializer,
@@ -20,6 +21,7 @@ from education.serializers.teacher_schedule_serializer import (
 
 __all__ = [
     "CourseModelSerializer",
+    "ReportBulkApprovalSerializer",
     "ReportHistoryModelSerializer",
     "ReportReadOnlyModelSerializer",
     "ReportReviewWriteOnlyModelSerializer",

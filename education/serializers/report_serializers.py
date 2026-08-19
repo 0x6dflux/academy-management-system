@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytz
+from django.db.models import OuterRef, Subquery
 from rest_framework import serializers
 
 from config.settings import TIME_ZONE
@@ -166,6 +167,37 @@ class ReportReviewWriteOnlyModelSerializer(serializers.ModelSerializer):
         )
 
         return super().create(validated_data)
+
+
+class ReportBulkApprovalSerializer(serializers.Serializer):
+    reports = serializers.PrimaryKeyRelatedField(
+        queryset=Report.objects.all(),
+        many=True,
+        allow_empty=False,
+    )
+
+    def validate_reports(self, values: list) -> list:
+        finalized = Report.objects.annotate(
+            latest_change=Subquery(
+                ReportHistory.objects.filter(report=OuterRef("pk"))
+                .order_by("-id")
+                .values("change")[:1]
+            )
+        ).filter(
+            pk__in=[report.pk for report in values],
+            latest_change__in=(
+                ReportHistory.ChangeChoices.APPROVED,
+                ReportHistory.ChangeChoices.REJECTED,
+            ),
+        )
+
+        if finalized.exists():
+            raise serializers.ValidationError(
+                f"These reports are already reviewed: "
+                f"{list(finalized.values_list('id', flat=True))}"
+            )
+
+        return values
 
 
 class ReportHistoryModelSerializer(serializers.ModelSerializer):
