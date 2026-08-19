@@ -1,4 +1,6 @@
 from django.db.models import OuterRef, Subquery
+from django_filters import CharFilter, DateFromToRangeFilter, FilterSet
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import (
     CreateModelMixin,
@@ -25,6 +27,18 @@ from education.serializers import (
 USER = User
 
 
+class ReportFilter(FilterSet):
+    school = CharFilter("session__course__semester__school__name", "icontains")
+    course = CharFilter("session__course__name", "icontains")
+    teacher_first_name = CharFilter("teacher_profile__first_name", "icontains")
+    teacher_last_name = CharFilter("teacher_profile__last_name", "icontains")
+    date = DateFromToRangeFilter("session__date")
+
+    class Meta:
+        model = Report
+        fields = ("school", "course", "teacher_first_name", "teacher_last_name", "date")
+
+
 class ReportCustomModelViewSet(
     CreateModelMixin,
     ListModelMixin,
@@ -37,6 +51,8 @@ class ReportCustomModelViewSet(
     http_method_names = ("get", "post", "put", "patch")
     queryset = Report.objects.all()
     permission_classes = (IsAuthenticated, IsTeacherOrEducationOfficerOrAdmin)
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = ReportFilter
 
     def get_queryset(self):
         if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
