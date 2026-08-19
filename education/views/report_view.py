@@ -1,4 +1,4 @@
-from django.db.models.query import QuerySet
+from django.db.models import OuterRef, Subquery
 from rest_framework.mixins import (
     CreateModelMixin,
     ListModelMixin,
@@ -6,15 +6,18 @@ from rest_framework.mixins import (
     UpdateModelMixin,
 )
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.serializers import BaseSerializer
 from rest_framework.viewsets import GenericViewSet
 
-from account.permissions import IsEducationOfficerOrAdmin, IsTeacherOrAdmin
+from account.models import User
+from account.permissions import IsTeacherOrEducationOfficerOrAdmin
 from education.models import Report, ReportHistory
 from education.serializers import (
-    ReportEDORoleModelSerializer,
-    ReportTCHRoleModelSerializer,
+    ReportReadOnlyModelSerializer,
+    ReportReviewWriteOnlyModelSerializer,
+    ReportSubmissionWriteOnlyModelSerializer,
 )
+
+USER = User
 
 
 class ReportCustomModelViewSet(
@@ -24,45 +27,73 @@ class ReportCustomModelViewSet(
     UpdateModelMixin,
     GenericViewSet,
 ):
+    # only users with TCH role can update their reports
+    # whenever each report has been reviewed by EDO
     http_method_names = ("get", "post", "put", "patch")
     queryset = Report.objects.all()
-    serializer_class = ReportTCHRoleModelSerializer
-    permission_classes = (IsAuthenticated, IsTeacherOrAdmin)
+    permission_classes = (IsAuthenticated, IsTeacherOrEducationOfficerOrAdmin)
 
-    def get_queryset(self) -> QuerySet:
-        return super().get_queryset().filter(teacher_profile__user=self.request.user)
+    def get_queryset(self):
+        if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
+            return (
+                super().get_queryset().filter(teacher_profile__user=self.request.user)
+            )
 
-    def perform_create(self, serializer: BaseSerializer) -> None:
+        elif self.request.user.role == USER.RoleChoices.EDUCATION_OFFICER:  # type: ignore
+            return (
+                super()
+                .get_queryset()
+                .annotate(
+                    latest_change=Subquery(
+                        ReportHistory.objects.filter(report=OuterRef("pk"))
+                        .order_by("-id")
+                        .values("change")[:1]
+                    )
+                )
+                # .prefetch_related("histories")
+                .exclude(
+                    latest_change__in=(
+                        ReportHistory.ChangeChoices.REJECTED,
+                        ReportHistory.ChangeChoices.APPROVED,
+                    )
+                )
+            )
+
+        else:
+            # user with ADMIN role
+            return super().get_queryset()
+
+    def get_serializer_class(self):
+        if self.action in ("list", "retrieve"):
+            return ReportReadOnlyModelSerializer
+        else:
+            # actions for `POST`, `PUT`, and `PATCH`
+            if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
+                return ReportSubmissionWriteOnlyModelSerializer
+            else:
+                # EDO or ADMIN
+                return ReportReviewWriteOnlyModelSerializer
+
+    def perform_create(self, serializer) -> None:
         super().perform_create(serializer)
 
-        # creating the ReportHistory
-        ReportHistory.objects.create(
-            report_id=serializer.data["id"],
-            user=self.request.user,  # type: ignore
-            role=self.request.user.role,  # type: ignore
-            change=ReportHistory.ChangeChoices.CREATED,
-        )
+        if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
+            # write log on the ReportHistory model
+            ReportHistory.objects.create(
+                report_id=serializer.data["id"],
+                user=self.request.user,  # type: ignore
+                role=self.request.user.role,  # type: ignore
+                change=ReportHistory.ChangeChoices.CREATED,
+            )
 
-    def perform_update(self, serializer: BaseSerializer) -> None:
-        super().perform_update(serializer)
+    def perform_update(self, serializer) -> None:
+        if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
+            super().perform_update(serializer)
 
-        # updating the ReportHistory
-        ReportHistory.objects.create(
-            report_id=serializer.data["id"],
-            user=self.request.user,  # type: ignore
-            role=self.request.user.role,  # type: ignore
-            change=ReportHistory.ChangeChoices.UPDATED,
-        )
-
-
-class ReportReviewCustomModelViewSet(
-    CreateModelMixin,
-    ListModelMixin,
-    RetrieveModelMixin,
-    UpdateModelMixin,
-    GenericViewSet,
-):
-    http_method_names = ("get", "post")
-    queryset = ReportHistory.objects.all()
-    serializer_class = ReportEDORoleModelSerializer
-    permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
+            # write log on the ReportHistory model
+            ReportHistory.objects.create(
+                report_id=serializer.data["id"],
+                user=self.request.user,  # type: ignore
+                role=self.request.user.role,  # type: ignore
+                change=ReportHistory.ChangeChoices.UPDATED,
+            )
