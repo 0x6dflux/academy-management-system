@@ -117,7 +117,7 @@ class ReportSubmissionWriteOnlyModelSerializer(
 
     def update(self, instance, validated_data: dict):
         if instance.can_TCH_update:
-            session = validated_data["session"] or instance.session
+            session = validated_data.get("session", instance.session)
 
             validated_data["is_delayed"], validated_data["delay_time"] = (
                 self.delay_calculation(session)
