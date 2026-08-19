@@ -5,7 +5,7 @@ from education.views import (
     CourseModelViewSet,
     HomeAPIView,
     ReportCustomModelViewSet,
-    ReportReviewCustomModelViewSet,
+    ReportHistoryCustomModelViewSet,
     SchoolContactPersonModelViewSet,
     SchoolModelViewSet,
     SemesterModelViewSet,
@@ -26,7 +26,7 @@ router.register("course", CourseModelViewSet)
 router.register("session", SessionModelViewSet)
 router.register("teacher-course", TeacherCourseModelViewSet, "teacher-course")
 router.register("report", ReportCustomModelViewSet)
-router.register("report-review", ReportReviewCustomModelViewSet, "report-review")
+router.register("report-history", ReportHistoryCustomModelViewSet, "report-history")
 
 app_name = "education"
 

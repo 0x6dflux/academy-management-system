@@ -1,4 +1,5 @@
 from django.db.models import OuterRef, Subquery
+from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import (
     CreateModelMixin,
     ListModelMixin,
@@ -9,9 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet
 
 from account.models import User
-from account.permissions import IsTeacherOrEducationOfficerOrAdmin
+from account.permissions import (
+    IsEducationOfficerOrAdmin,
+    IsTeacherOrEducationOfficerOrAdmin,
+)
 from education.models import Report, ReportHistory
 from education.serializers import (
+    ReportHistoryModelSerializer,
     ReportReadOnlyModelSerializer,
     ReportReviewWriteOnlyModelSerializer,
     ReportSubmissionWriteOnlyModelSerializer,
@@ -97,3 +102,17 @@ class ReportCustomModelViewSet(
                 role=self.request.user.role,  # type: ignore
                 change=ReportHistory.ChangeChoices.UPDATED,
             )
+
+
+class ReportHistoryCustomModelViewSet(
+    ListModelMixin,
+    RetrieveModelMixin,
+    UpdateModelMixin,
+    GenericViewSet,
+):
+    http_method_names = ("get", "patch")
+    queryset = ReportHistory.objects.all()
+    serializer_class = ReportHistoryModelSerializer
+    permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
+    filter_backends = (OrderingFilter,)
+    ordering = ("-modified_at",)
