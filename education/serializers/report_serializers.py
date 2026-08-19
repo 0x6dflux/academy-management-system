@@ -3,18 +3,16 @@ from datetime import datetime, timedelta
 import pytz
 from rest_framework import serializers
 
-# from account.models import TeacherProfile
 from config.settings import TIME_ZONE
 from education.models import Report, ReportHistory, Session
 from system.utils import SetUserModifierMixin
 
 
-class ReportTCHRoleModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
+class ReportReadOnlyModelSerializer(serializers.ModelSerializer):
     session = serializers.StringRelatedField()  # type: ignore
-    session_id = serializers.PrimaryKeyRelatedField(  # type: ignore
-        queryset=Session.objects.all(),
-        write_only=True,
-        source="session",
+    latest_rejection_description = serializers.CharField(
+        read_only=True,
+        source="rej_desc",
     )
 
     class Meta:
@@ -22,19 +20,23 @@ class ReportTCHRoleModelSerializer(SetUserModifierMixin, serializers.ModelSerial
         fields = (
             "id",
             "session",
-            "session_id",
             "tutorial_summary",
             "number_of_attendees",
             "number_of_absentees",
             "is_delayed",
             "delay_time",
             "is_approved",
-            "rej_desc",
+            "latest_rejection_description",
         )
         read_only_fields = (
+            "tutorial_summary",
+            "number_of_attendees",
+            "number_of_absentees",
             "is_delayed",
             "delay_time",
             "is_approved",
+        )
+
             "rej_desc",
         )
 
