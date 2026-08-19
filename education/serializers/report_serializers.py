@@ -111,50 +111,39 @@ class ReportSubmissionWriteOnlyModelSerializer(
             )
 
 
-class ReportEDORoleModelSerializer(serializers.ModelSerializer):
-    """This serializer is for reading mode."""
-
-    report = ReportTCHRoleModelSerializer(read_only=True)
-    report_id = serializers.PrimaryKeyRelatedField(
+class ReportReviewWriteOnlyModelSerializer(serializers.ModelSerializer):
+    report = serializers.PrimaryKeyRelatedField(
         queryset=Report.objects.all(),
         write_only=True,
-        source="report",
-    )
-    change = serializers.CharField(
-        read_only=True,
-        source="get_change_display",
-        label="Latest Status",
     )
     is_approved = serializers.BooleanField(write_only=True)
-    description = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(
+        write_only=True,
+        allow_null=True,
+        allow_blank=True,
+    )
 
     class Meta:
         model = ReportHistory
-        fields = (
-            # "id",  # to not allow updating
-            "report",
-            "report_id",
-            "change",
-            "is_approved",
-            "description",
-        )
+        fields = ("id", "report", "is_approved", "description")
 
     def validate(self, data: dict) -> dict:
-        if data["is_approved"] == False and data["description"] is None:
+        if data["is_approved"] == False and data["description"].strip() in (None, ""):
             raise serializers.ValidationError(
                 "Description shall not be blank if the report is not approved."
             )
 
         return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict):
         validated_data["user"] = self.context["request"].user
         validated_data["role"] = self.context["request"].user.role
 
-        is_report_approved = validated_data.pop("is_approved")
-        if is_report_approved:
-            validated_data["change"] = ReportHistory.ChangeChoices.APPROVED
-        else:
-            validated_data["change"] = ReportHistory.ChangeChoices.REJECTED
+        report_change = validated_data.pop("is_approved")
+        validated_data["change"] = (
+            ReportHistory.ChangeChoices.APPROVED
+            if report_change
+            else ReportHistory.ChangeChoices.REJECTED
+        )
 
         return super().create(validated_data)

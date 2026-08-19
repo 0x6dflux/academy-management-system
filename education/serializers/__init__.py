@@ -3,6 +3,7 @@ from education.serializers.report_serializers import (
     ReportEDORoleModelSerializer,
     ReportTCHRoleModelSerializer,
     ReportReadOnlyModelSerializer,
+    ReportReviewWriteOnlyModelSerializer,
     ReportSubmissionWriteOnlyModelSerializer,
 )
 from education.serializers.school_serializers import (
@@ -21,6 +22,7 @@ __all__ = [
     "ReportEDORoleModelSerializer",
     "ReportTCHRoleModelSerializer",
     "ReportReadOnlyModelSerializer",
+    "ReportReviewWriteOnlyModelSerializer",
     "ReportSubmissionWriteOnlyModelSerializer",
     "SchoolContactPersonModelSerializer",
     "SchoolModelSerializer",
