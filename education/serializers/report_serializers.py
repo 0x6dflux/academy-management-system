@@ -37,8 +37,31 @@ class ReportReadOnlyModelSerializer(serializers.ModelSerializer):
             "is_approved",
         )
 
-            "rej_desc",
+
+class ReportSubmissionWriteOnlyModelSerializer(
+    SetUserModifierMixin,
+    serializers.ModelSerializer,
+):
+    session_id = serializers.PrimaryKeyRelatedField(  # type: ignore
+        queryset=Session.objects.all(),
+        write_only=True,
+        source="session",
+    )
+
+    class Meta:
+        model = Report
+        fields = (
+            "id",
+            "session_id",
+            "tutorial_summary",
+            "number_of_attendees",
+            "number_of_absentees",
         )
+        extra_kwargs = {
+            "tutorial_summary": {"write_only": True},
+            "number_of_attendees": {"write_only": True},
+            "number_of_absentees": {"write_only": True},
+        }
 
     @staticmethod
     def delay_calculation(session) -> tuple[bool, int]:
@@ -55,10 +78,12 @@ class ReportReadOnlyModelSerializer(serializers.ModelSerializer):
         local_submission_due_datetime = tz.localize(submission_due_datetime)
         local_now = datetime.now(tz)
 
-        if local_now > local_submission_due_datetime:
-            return True, (local_now - local_submission_due_datetime).seconds // 3600
+        if local_now <= local_submission_due_datetime:
+            return False, 0
 
-        return False, 0
+        return True, int(
+            (local_now - local_submission_due_datetime).total_seconds()
+        ) // 3600
 
     def create(self, validated_data: dict):
 
