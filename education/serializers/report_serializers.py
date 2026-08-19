@@ -147,3 +147,60 @@ class ReportReviewWriteOnlyModelSerializer(serializers.ModelSerializer):
         )
 
         return super().create(validated_data)
+
+
+class ReportHistoryModelSerializer(serializers.ModelSerializer):
+    report = serializers.StringRelatedField()  # type: ignore
+    user = serializers.StringRelatedField()  # type: ignore
+    change = serializers.CharField(read_only=True, source="get_change_display")
+    is_approved = serializers.BooleanField(write_only=True)
+
+    class Meta:
+        model = ReportHistory
+        fields = (
+            "id",
+            "report",
+            "user",
+            "role",
+            "change",
+            "is_approved",
+            "description",
+            "modified_at",
+        )
+        read_only_fields = ("report", "user", "role", "modified_at")
+
+    def validate(self, data: dict) -> dict:
+        if self.partial and "is_approved" not in data:
+            raise serializers.ValidationError("The `is_approved` field is required!")
+
+        if self.partial and "description" not in data:
+            raise serializers.ValidationError("The `description` field is required!")
+
+        if data["is_approved"] == False and data["description"].strip() in (
+            None,
+            "",
+        ):
+            raise serializers.ValidationError(
+                "Description shall not be blank if the report is not approved."
+            )
+
+        return data
+
+    def update(self, instance, validated_data: dict):
+        validated_data["report"] = instance.report
+
+        validated_data["user"] = self.context["request"].user
+        validated_data["role"] = self.context["request"].user.role
+
+        if "is_approved" in validated_data:
+            report_change = validated_data.pop("is_approved")
+            validated_data["change"] = (
+                ReportHistory.ChangeChoices.APPROVED
+                if report_change
+                else ReportHistory.ChangeChoices.REJECTED
+            )
+        else:
+            validated_data["change"] = instance.change
+
+        # to persist the idempotency
+        return self.create(validated_data)
