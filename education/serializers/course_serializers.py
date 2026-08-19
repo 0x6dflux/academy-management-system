@@ -5,7 +5,7 @@ from education.models import Course, Semester, TeacherCourse
 from system.utils import SetUserModifierMixin
 
 
-class TeacherCourseModelSerializer(serializers.ModelSerializer):
+class TeachersCourseModelSerializer(serializers.ModelSerializer):
     teacher = TeacherProfileTeacherRoleSerializer(
         source="teacher_profile",
         read_only=True,
@@ -29,7 +29,7 @@ class CourseModelSerializer(SetUserModifierMixin, serializers.ModelSerializer):
     #     read_only=True,
     #     source="get_sessions_length_display",
     # )
-    teachers = TeacherCourseModelSerializer(many=True, read_only=True)
+    teachers = TeachersCourseModelSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course

@@ -60,6 +60,10 @@ class ReportCustomModelViewSet(
     filterset_class = ReportFilter
 
     def get_queryset(self):
+        # as per swagger warning
+        if getattr(self, "swagger_fake_view", False):
+            return Report.objects.none()
+
         if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
             return (
                 super().get_queryset().filter(teacher_profile__user=self.request.user)
@@ -90,6 +94,10 @@ class ReportCustomModelViewSet(
             return super().get_queryset()
 
     def get_serializer_class(self):
+        # as per swagger warning
+        if getattr(self, "swagger_fake_view", False):
+            return ReportReadOnlyModelSerializer
+
         if self.action in ("list", "retrieve"):
             return ReportReadOnlyModelSerializer
         else:
