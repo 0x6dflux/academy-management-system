@@ -63,6 +63,25 @@ class ReportSubmissionWriteOnlyModelSerializer(
             "number_of_absentees": {"write_only": True},
         }
 
+    def validate_session_id(self, value: Session) -> Session:
+        # if self.context["request"].user.id not in value.course.teachers.values_list(
+        #     "teacher_profile__user",
+        #     flat=True,
+        # ):
+        if not (
+            # check whether this teacher is assigned in the TeacherCourse table
+            value.course.teachers.filter(
+                teacher_profile__user=self.context["request"].user
+            ).exists()
+            # check which teacher assigned in the TeacherCourse has run the session
+            # and
+        ):
+            raise serializers.ValidationError(
+                "You can only submit reports for sessions assigned to you."
+            )
+
+        return value
+
     @staticmethod
     def delay_calculation(session) -> tuple[bool, int]:
         """
