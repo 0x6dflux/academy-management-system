@@ -2663,6 +2663,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Teacher received invalid number of sessions!",
         )
 
+        course_data["sessions"][0].pop("report")
         self.assertEqual(
             course_data["sessions"][0],
             {
@@ -2673,6 +2674,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid first session!",
         )
 
+        course_data["sessions"][1].pop("report")
         self.assertEqual(
             course_data["sessions"][1],
             {
