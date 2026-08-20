@@ -155,6 +155,17 @@ class ReportReviewWriteOnlyModelSerializer(serializers.ModelSerializer):
         model = ReportHistory
         fields = ("id", "report", "is_approved", "description")
 
+    def validate_report(self, value: Report) -> Report:
+        latest = value.histories.last()  # type: ignore
+
+        if latest and latest.change in (
+            ReportHistory.ChangeChoices.APPROVED,
+            ReportHistory.ChangeChoices.REJECTED,
+        ):
+            raise serializers.ValidationError("This report is already finalized!")
+
+        return value
+
     def validate(self, data: dict) -> dict:
         description = data.get("description") or ""
         if data["is_approved"] is False and description.strip() == "":

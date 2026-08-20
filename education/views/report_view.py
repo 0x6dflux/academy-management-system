@@ -1,6 +1,7 @@
 from django.db.models import OuterRef, Subquery
 from django_filters import CharFilter, DateFromToRangeFilter, FilterSet
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
 from rest_framework.mixins import (
     CreateModelMixin,
@@ -120,17 +121,23 @@ class ReportCustomModelViewSet(
                 change=ReportHistory.ChangeChoices.CREATED,
             )
 
-    def perform_update(self, serializer) -> None:
-        if self.request.user.role == USER.RoleChoices.TEACHER:  # type: ignore
-            super().perform_update(serializer)
+        # for TCH consider transaction atomic!!
 
-            # write log on the ReportHistory model
-            ReportHistory.objects.create(
-                report_id=serializer.data["id"],
-                user=self.request.user,  # type: ignore
-                role=self.request.user.role,  # type: ignore
-                change=ReportHistory.ChangeChoices.UPDATED,
+    def perform_update(self, serializer) -> None:
+        if self.request.user.role != USER.RoleChoices.TEACHER:  # type: ignore
+            raise PermissionDenied(
+                "Only users with TCH role can update report content!"
             )
+
+        super().perform_update(serializer)
+
+        # write log on the ReportHistory model
+        ReportHistory.objects.create(
+            report_id=serializer.data["id"],
+            user=self.request.user,  # type: ignore
+            role=self.request.user.role,  # type: ignore
+            change=ReportHistory.ChangeChoices.UPDATED,
+        )
 
 
 class ReportBulkApprovalAPIView(APIView):
