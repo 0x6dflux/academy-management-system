@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pytz
 from django.db.models import OuterRef, Subquery
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 from config.settings import TIME_ZONE
 from education.models import Report, ReportHistory, Session
@@ -47,6 +48,13 @@ class ReportSubmissionWriteOnlyModelSerializer(
         queryset=Session.objects.all(),
         write_only=True,
         source="session",
+        validators=[UniqueValidator(queryset=Report.objects.all())],
+        # if a TCH, POST a report for a same session
+        # it will reach database and returns a `500` status code
+        # to handle this exception, a `UniqueValidator` shall be defined
+        # [HINT] if the field was introduced in the Meta class
+        # the serializer would have added a unique validator based on the model
+        # and it was not required to define the `UniqueValidator` here!
     )
 
     class Meta:
@@ -148,7 +156,11 @@ class ReportReviewWriteOnlyModelSerializer(serializers.ModelSerializer):
         fields = ("id", "report", "is_approved", "description")
 
     def validate(self, data: dict) -> dict:
-        if data["is_approved"] == False and data["description"].strip() in (None, ""):
+        description = data.get("description") or ""
+        if data["is_approved"] is False and description.strip() == "":
+            # False == 0 -> True
+            # False is 0 -> False
+            # data["description"].strip() -> if data["description"]=None -> AttributeError!!
             raise serializers.ValidationError(
                 "Description shall not be blank if the report is not approved."
             )
@@ -227,10 +239,9 @@ class ReportHistoryModelSerializer(serializers.ModelSerializer):
         if self.partial and "description" not in data:
             raise serializers.ValidationError("The `description` field is required!")
 
-        if data["is_approved"] == False and data["description"].strip() in (
-            None,
-            "",
-        ):
+        description = data.get("description") or ""
+        if data["is_approved"] is False and description.strip() == "":
+            # same as above
             raise serializers.ValidationError(
                 "Description shall not be blank if the report is not approved."
             )

@@ -62,14 +62,16 @@ class Report(BaseModel):
         )
 
     @property
-    def rej_desc(self) -> str:
+    def rej_desc(self) -> str | None:
         """This property returns the latest rejection description."""
 
-        return (
-            self.histories.filter(change=ReportHistory.ChangeChoices.REJECTED)  # type: ignore
-            .last()
-            .description  # type: ignore
-        )
+        latest_rejection = self.histories.filter(  # type: ignore
+            change=ReportHistory.ChangeChoices.REJECTED
+        ).last()
+
+        # to have a unique format in the response
+        # in this way testing will be easier
+        return latest_rejection.description if latest_rejection else None
 
     @property
     def serial_number(self) -> str:  # RPXXXX
