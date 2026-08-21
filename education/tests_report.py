@@ -586,3 +586,902 @@ class ReportLifecycleAPITestCase(TestCase, EndpointTestsMixin):
         )
         self.assertEqual(approved_response.status_code, 404)
         self.assertEqual(rejected_response.status_code, 404)
+
+    def test_teacher_cannot_edit_pending_or_approved_report(self) -> None:
+        pending = self._create_session(course=self.course, hours_before_end=20)
+        approved = self._create_session(course=self.course, hours_before_end=20)
+        rejected = self._create_session(course=self.course, hours_before_end=20)
+
+        pending_report = Report.objects.create(
+            session=pending,
+            teacher_profile=self.teacher_profile,
+            tutorial_summary="Pending",
+            number_of_attendees=10,
+            number_of_absentees=1,
+            is_delayed=False,
+            delay_time=0,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        ReportHistory.objects.create(
+            report=pending_report,
+            user=self.teacher,
+            role=USER.RoleChoices.TEACHER,
+            change=ReportHistory.ChangeChoices.CREATED,
+        )
+
+        approved_report_response = self._submit_report(self.teacher, approved)
+        rejected_report = self._submit_report(self.teacher, rejected)
+
+        approved_report = Report.objects.get(pk=approved_report_response.data["id"])
+        rejected_report = Report.objects.get(pk=rejected_report.data["id"])
+
+        self._review_report(
+            self.education_officer,
+            approved_report,
+            is_approved=True,
+            description="Approved",
+        )
+        self._review_report(
+            self.education_officer,
+            rejected_report,
+            is_approved=False,
+            description="Need fix",
+        )
+
+        response_pending = self._edit_report(
+            self.teacher,
+            pending_report.id,
+            self._create_report_payload(pending_report.session.id, summary="Nope"),
+        )
+        response_approved = self._edit_report(
+            self.teacher,
+            approved_report.id,
+            self._create_report_payload(approved_report.session.id, summary="Nope"),
+        )
+        response_rejected = self._edit_report(
+            self.teacher,
+            rejected_report.id,
+            self._create_report_payload(rejected_report.session.id, summary="Allowed"),
+        )
+
+        self.assertEqual(response_pending.status_code, 400, response_pending.data)
+        self.assertEqual(response_approved.status_code, 400, response_approved.data)
+        self.assertEqual(response_rejected.status_code, 200, response_rejected.data)
+
+        rejected_report.refresh_from_db()
+        self.assertEqual(rejected_report.tutorial_summary, "Allowed")
+
+    def test_teacher_can_submit_report_for_own_session(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+
+        response = self._submit_report(
+            self.teacher,
+            session,
+            self._create_report_payload(session.id),
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Report.objects.count(), 1)
+
+        report = Report.objects.get(session=session)
+        self.assertEqual(report.teacher_profile.user, self.teacher)
+        self.assertEqual(report.tutorial_summary, "A short lesson about conditionals.")
+        self.assertEqual(report.number_of_attendees, 10)
+        self.assertEqual(report.number_of_absentees, 2)
+
+        report_histories = ReportHistory.objects.filter(report=report)
+        self.assertEqual(report_histories.count(), 1)
+        self.assertEqual(
+            report_histories.first().change,
+            ReportHistory.ChangeChoices.CREATED,
+        )
+        self.assertEqual(report_histories.first().user, self.teacher)
+        self.assertEqual(report_histories.first().role, USER.RoleChoices.TEACHER)
+
+    def test_teacher_cannot_submit_report_for_unowned_session(self) -> None:
+        unowned_session = self._create_session(
+            course=self.other_course,
+            hours_before_end=20,
+        )
+
+        response = self._submit_report(
+            self.teacher,
+            unowned_session,
+            self._create_report_payload(unowned_session.id),
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn(
+            "You can only submit reports for sessions assigned to you.",
+            str(response.data),
+        )
+        self.assertEqual(Report.objects.count(), 0)
+
+    def test_report_submission_requires_all_required_fields(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.post(self.report_url, {"session_id": session.id})
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("tutorial_summary", response.data)
+        self.assertIn("number_of_attendees", response.data)
+        self.assertIn("number_of_absentees", response.data)
+        self.assertEqual(Report.objects.count(), 0)
+
+    def test_report_submission_rejects_negative_attendees(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+
+        response = self._submit_report(
+            self.teacher,
+            session,
+            self._create_report_payload(session.id, attendees=-1),
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("number_of_attendees", response.data)
+
+    def test_report_submission_rejects_negative_absentees(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+
+        response = self._submit_report(
+            self.teacher,
+            session,
+            self._create_report_payload(session.id, absentees=-1),
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("number_of_absentees", response.data)
+
+    def test_report_submission_rejects_non_integer_attendees(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+
+        payload = self._create_report_payload(session.id)
+        payload["number_of_attendees"] = "ten"
+
+        response = self._submit_report(self.teacher, session, payload)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("number_of_attendees", response.data)
+
+    def test_report_delay_calculation_exact_cutoff_is_not_late(self) -> None:
+        current_local = (
+            timezone.now()
+            .astimezone(self.local_tz)
+            .replace(
+                second=0,
+                microsecond=0,
+            )
+        )
+        cutoff_session_end = current_local - timedelta(hours=48)
+        pseudo_session = Session(
+            date=cutoff_session_end.date(),
+            start_time=time(9, 0),
+            end_time=time(
+                cutoff_session_end.hour,
+                cutoff_session_end.minute,
+                cutoff_session_end.second,
+            ),
+        )
+
+        with patch(
+            "education.serializers.report_serializers.datetime"
+        ) as datetime_mock:
+            datetime_mock.combine.side_effect = lambda date_obj, time_obj: (
+                datetime.combine(date_obj, time_obj)
+            )
+            datetime_mock.now.return_value = current_local
+            is_late, delay_time = (
+                ReportSubmissionWriteOnlyModelSerializer.delay_calculation(
+                    pseudo_session
+                )
+            )
+
+        self.assertFalse(is_late)
+        self.assertEqual(delay_time, 0)
+
+    def test_report_submission_marks_not_late_within_48_hours(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=47,
+        )
+
+        response = self._submit_report(self.teacher, session)
+        self.assertEqual(response.status_code, 201, response.data)
+
+        report = Report.objects.get(session=session)
+        expected_late, expected_delay = (
+            ReportSubmissionWriteOnlyModelSerializer.delay_calculation(session)
+        )
+        self.assertEqual(report.is_delayed, expected_late)
+        self.assertEqual(report.delay_time, expected_delay)
+
+    def test_report_submission_marks_late_after_48_hours(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=50,
+        )
+
+        response = self._submit_report(self.teacher, session)
+        self.assertEqual(response.status_code, 201, response.data)
+
+        report = Report.objects.get(session=session)
+        expected_late, expected_delay = (
+            ReportSubmissionWriteOnlyModelSerializer.delay_calculation(session)
+        )
+        self.assertTrue(expected_late)
+        self.assertTrue(report.is_delayed)
+        self.assertEqual(report.delay_time, expected_delay)
+        self.assertGreaterEqual(report.delay_time, 1)
+
+    def test_edo_list_and_filters_pending_reports(self) -> None:
+        today = timezone.now().date()
+        in_range_session = self._create_session(
+            course=self.course,
+            date=today - timedelta(days=1),
+            start_time=time(10, 0),
+            end_time=time(11, 30),
+        )
+        out_of_range_session = self._create_session(
+            course=self.course,
+            date=today - timedelta(days=40),
+            start_time=time(10, 0),
+            end_time=time(11, 30),
+        )
+        other_school_session = self._create_session(
+            course=self.other_course,
+            date=today - timedelta(days=2),
+            start_time=time(10, 0),
+            end_time=time(11, 30),
+        )
+        self._submit_report(self.teacher, in_range_session)
+        self._submit_report(self.teacher, out_of_range_session)
+        self._submit_report(self.teacher2, other_school_session)
+
+        self.client.force_authenticate(user=self.education_officer)
+        list_response = self.client.get(self.report_url)
+        self.assertEqual(list_response.status_code, 200, list_response.data)
+        self.assertEqual(len(list_response.data), 3)
+
+        school_filtered = self.client.get(self.report_url, {"school": self.school.name})
+        self.assertEqual(school_filtered.status_code, 200, school_filtered.data)
+        self.assertEqual(len(school_filtered.data), 2)
+        school_report_ids = {item["id"] for item in school_filtered.data}
+        school_expected_ids = {
+            Report.objects.get(session=in_range_session).id,
+            Report.objects.get(session=out_of_range_session).id,
+        }
+        self.assertEqual(school_report_ids, school_expected_ids)
+
+        course_filtered = self.client.get(
+            self.report_url, {"course": self.other_course.name}
+        )
+        self.assertEqual(course_filtered.status_code, 200, course_filtered.data)
+        self.assertEqual(len(course_filtered.data), 1)
+        self.assertEqual(
+            course_filtered.data[0]["id"],
+            Report.objects.get(session=other_school_session).id,
+        )
+
+        teacher_filtered = self.client.get(
+            self.report_url, {"teacher_first_name": self.teacher_profile2.first_name}
+        )
+        self.assertEqual(teacher_filtered.status_code, 200, teacher_filtered.data)
+        self.assertEqual(len(teacher_filtered.data), 1)
+        self.assertEqual(
+            teacher_filtered.data[0]["id"],
+            Report.objects.get(session=other_school_session).id,
+        )
+
+        date_range_filtered = self.client.get(
+            self.report_url,
+            {
+                "date_after": str(today - timedelta(days=10)),
+                "date_before": str(today),
+            },
+        )
+        self.assertEqual(date_range_filtered.status_code, 200, date_range_filtered.data)
+        self.assertEqual(len(date_range_filtered.data), 2)
+        self.assertEqual(
+            {item["id"] for item in date_range_filtered.data},
+            {
+                Report.objects.get(session=in_range_session).id,
+                Report.objects.get(session=other_school_session).id,
+            },
+        )
+
+    def test_edo_filters_are_combinable(self) -> None:
+        today = timezone.now().date()
+
+        extra_course = Course.objects.create(
+            semester=self.semester,
+            name="Django Advanced",
+            level=Course.LevelChoices.INTERMEDIATE,
+            start_date=today - timedelta(days=40),
+            end_date=today + timedelta(days=40),
+            sessions_length=Course.SessionLengthChoices.MIN120,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=extra_course,
+            started_at=today - timedelta(days=30),
+            ended_at=today + timedelta(days=30),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        matching_session = self._create_session(
+            course=self.course,
+            date=today - timedelta(days=1),
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+        )
+        same_school_wrong_course_session = self._create_session(
+            course=extra_course,
+            date=today - timedelta(days=2),
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+        )
+        out_of_range_session = self._create_session(
+            course=self.course,
+            date=today - timedelta(days=20),
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+        )
+
+        self._submit_report(self.teacher, matching_session)
+        self._submit_report(self.teacher, same_school_wrong_course_session)
+        self._submit_report(self.teacher, out_of_range_session)
+
+        self.client.force_authenticate(user=self.education_officer)
+        filtered_response = self.client.get(
+            self.report_url,
+            {
+                "school": self.school.name,
+                "course": self.course.name,
+                "date_after": str(today - timedelta(days=5)),
+                "date_before": str(today),
+            },
+        )
+        self.assertEqual(filtered_response.status_code, 200, filtered_response.data)
+        self.assertEqual(len(filtered_response.data), 1)
+        self.assertEqual(
+            filtered_response.data[0]["id"],
+            Report.objects.get(session=matching_session).id,
+        )
+
+    def test_admin_can_approve_report(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            self.report_url,
+            {
+                "report": report.id,
+                "is_approved": True,
+                "description": "Approved by admin.",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
+        report.refresh_from_db()
+        self.assertEqual(
+            report.histories.order_by("-id").first().change,  # type: ignore[union-attr]
+            ReportHistory.ChangeChoices.APPROVED,
+        )
+        self.assertEqual(
+            report.histories.order_by("-id").first().user,  # type: ignore[union-attr]
+            self.admin,
+        )
+
+    def test_edo_can_review_report_and_requires_rejection_reason(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+
+        missing_reason_response = self._review_report(
+            self.education_officer,
+            report,
+            is_approved=False,
+            description="   ",
+        )
+        self.assertEqual(
+            missing_reason_response.status_code,
+            400,
+            missing_reason_response.data,
+        )
+        self.assertIn(
+            "Description shall not be blank if the report is not approved.",
+            str(missing_reason_response.data),
+        )
+
+        review_response = self._review_report(
+            self.education_officer,
+            report,
+            is_approved=True,
+            description="Looks good",
+        )
+        self.assertEqual(review_response.status_code, 201, review_response.data)
+
+        report.refresh_from_db()
+        self.assertEqual(
+            report.histories.order_by("-id").first().change,
+            ReportHistory.ChangeChoices.APPROVED,
+        )
+        self.assertEqual(
+            report.histories.order_by("-id").first().user, self.education_officer
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        pending_list = self.client.get(self.report_url)
+        self.assertEqual(pending_list.status_code, 200, pending_list.data)
+        self.assertEqual(pending_list.data, [])
+
+    def test_edo_cannot_review_already_finalized_report(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+
+        self._review_report(
+            self.education_officer,
+            report,
+            is_approved=True,
+            description="Approved first time.",
+        )
+
+        second_review = self._review_report(
+            self.education_officer,
+            report,
+            is_approved=False,
+            description="Second review should fail.",
+        )
+        self.assertEqual(second_review.status_code, 400, second_review.data)
+        self.assertIn("already finalized", str(second_review.data))
+
+    def test_bulk_approval_rejects_empty_report_list(self) -> None:
+        self.client.force_authenticate(user=self.education_officer)
+        response = self.client.post(
+            self.bulk_approval_url,
+            {"reports": []},
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("may not be empty", str(response.data))
+
+    def test_report_history_patch_rejects_missing_fields(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        history = ReportHistory.objects.latest("id")
+        history_url = reverse(
+            "education:report-history-detail", kwargs={"pk": history.id}
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        no_is_approved = self.client.patch(
+            history_url, {"description": "Only description"}
+        )
+        self.assertEqual(no_is_approved.status_code, 400, no_is_approved.data)
+        self.assertIn("is_approved", str(no_is_approved.data))
+
+        no_description = self.client.patch(
+            history_url,
+            {"is_approved": False},
+        )
+        self.assertEqual(no_description.status_code, 400, no_description.data)
+        self.assertIn("description", str(no_description.data))
+
+        no_missing_description = self.client.patch(
+            history_url,
+            {"is_approved": False, "description": "   "},
+        )
+        self.assertEqual(
+            no_missing_description.status_code, 400, no_missing_description.data
+        )
+        self.assertIn(
+            "Description shall not be blank", str(no_missing_description.data)
+        )
+
+    def test_report_history_patch_can_append_review_entry(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+        initial_count = ReportHistory.objects.filter(report=report).count()
+
+        history = ReportHistory.objects.latest("id")
+        history_url = reverse(
+            "education:report-history-detail", kwargs={"pk": history.id}
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        patch_response = self.client.patch(
+            history_url,
+            {"is_approved": False, "description": "Reviewer found missing details."},
+        )
+        self.assertEqual(patch_response.status_code, 200, patch_response.data)
+
+        report.refresh_from_db()
+        self.assertEqual(
+            report.histories.count(),
+            initial_count + 1,
+        )
+        latest_history = report.histories.order_by("-id").first()
+        self.assertEqual(latest_history.change, ReportHistory.ChangeChoices.REJECTED)
+        self.assertEqual(latest_history.user, self.education_officer)
+        self.assertEqual(latest_history.description, "Reviewer found missing details.")
+
+    def test_education_officer_cannot_update_report_content(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+        old_summary = report.tutorial_summary
+
+        self.client.force_authenticate(user=self.education_officer)
+        response = self.client.put(
+            reverse("education:report-detail", kwargs={"pk": report.id}),
+            {"report": report.id, "is_approved": True, "tutorial_summary": "Hacked"},
+        )
+        self.assertEqual(response.status_code, 400, response.data)
+
+        report.refresh_from_db()
+        self.assertEqual(report.tutorial_summary, old_summary)
+
+    def test_report_history_permissions(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        history = ReportHistory.objects.latest("id")
+
+        response = self.client.get(self.report_history_url)
+        self.assertEqual(response.status_code, 403, response.data)
+
+        self.client.force_authenticate(user=self.finance_officer)
+        self.assertEqual(self.client.get(self.report_history_url).status_code, 403)
+
+        self.client.force_authenticate(user=self.teacher)
+        self.assertEqual(self.client.get(self.report_history_url).status_code, 403)
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    "education:report-history-detail",
+                    kwargs={"pk": history.id},
+                )
+            ).status_code,
+            403,
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        self.assertEqual(self.client.get(self.report_history_url).status_code, 200)
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    "education:report-history-detail",
+                    kwargs={"pk": history.id},
+                )
+            ).status_code,
+            200,
+        )
+
+        self.client.force_authenticate(user=self.teacher)
+        patch_response = self.client.patch(
+            reverse(
+                "education:report-history-detail",
+                kwargs={"pk": history.id},
+            ),
+            {"is_approved": True, "description": "No"},
+        )
+        self.assertEqual(patch_response.status_code, 403, patch_response.data)
+
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(self.client.get(self.report_history_url).status_code, 200)
+        self.assertEqual(
+            self.client.get(
+                reverse(
+                    "education:report-history-detail",
+                    kwargs={"pk": history.id},
+                )
+            ).status_code,
+            200,
+        )
+
+    def test_report_history_rejects_unsupported_methods(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        history = ReportHistory.objects.latest("id")
+        history_detail_url = reverse(
+            "education:report-history-detail",
+            kwargs={"pk": history.id},
+        )
+
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(self.client.post(self.report_history_url, {}).status_code, 405)
+        self.assertEqual(self.client.put(self.report_history_url, {}).status_code, 405)
+        self.assertEqual(self.client.delete(self.report_history_url).status_code, 405)
+        self.assertEqual(self.client.delete(history_detail_url).status_code, 405)
+        self.assertEqual(self.client.put(history_detail_url, {}).status_code, 405)
+
+    def test_report_bulk_approval_permissions(self) -> None:
+        session = self._create_session(course=self.course, hours_before_end=20)
+        report = self._submit_report(self.teacher, session)
+        report_id = report.data["id"]
+
+        self.client.force_authenticate(user=self.teacher)
+        self.assertEqual(
+            self.client.post(
+                self.bulk_approval_url,
+                {"reports": [report_id]},
+            ).status_code,
+            403,
+        )
+
+        self.client.force_authenticate(user=self.finance_officer)
+        self.assertEqual(
+            self.client.post(
+                self.bulk_approval_url,
+                {"reports": [report_id]},
+            ).status_code,
+            403,
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        self.assertEqual(
+            self.client.post(
+                self.bulk_approval_url,
+                {"reports": [report_id]},
+            ).status_code,
+            201,
+        )
+
+    def test_report_bulk_approval_rejects_unsupported_methods(self) -> None:
+        session = self._create_session(course=self.course, hours_before_end=20)
+        report = self._submit_report(self.teacher, session)
+        report_id = report.data["id"]
+
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(self.client.get(self.bulk_approval_url).status_code, 405)
+        self.assertEqual(self.client.delete(self.bulk_approval_url).status_code, 405)
+        self.assertEqual(
+            self.client.post(
+                self.bulk_approval_url,
+                {"reports": [report_id]},
+            ).status_code,
+            201,
+        )
+
+    def test_teacher_report_stat_permissions(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        self.assertEqual(
+            self.client.get(self.teacher_report_stat_url, {"days": 30}).status_code,
+            200,
+        )
+
+        self.client.force_authenticate(user=self.teacher)
+        self.assertEqual(
+            self.client.get(self.teacher_report_stat_url, {"days": 30}).status_code,
+            200,
+        )
+
+        self.client.force_authenticate(user=self.finance_officer)
+        self.assertEqual(
+            self.client.get(self.teacher_report_stat_url, {"days": 30}).status_code,
+            403,
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        self.assertEqual(
+            self.client.get(self.teacher_report_stat_url, {"days": 30}).status_code,
+            403,
+        )
+
+        self.client.logout()
+        self.assertEqual(
+            self.client.get(self.teacher_report_stat_url, {"days": 30}).status_code,
+            401,
+        )
+
+    def test_teacher_cannot_approve_their_own_report(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+        history_count_before = ReportHistory.objects.filter(report=report).count()
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.post(
+            self.report_url,
+            {
+                "report": report.id,
+                "is_approved": True,
+                "description": "Attempted approval",
+            },
+        )
+        self.assertNotEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            ReportHistory.objects.filter(report=report).count(),
+            history_count_before,
+        )
+
+    def test_teacher_can_edit_rejected_report_and_resubmit(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, session)
+        report = Report.objects.get(session=session)
+
+        reject_response = self._review_report(
+            self.education_officer,
+            report,
+            is_approved=False,
+            description="Missing detail",
+        )
+        self.assertEqual(reject_response.status_code, 201, reject_response.data)
+        self.assertEqual(
+            self._latest_history_change(report), ReportHistory.ChangeChoices.REJECTED
+        )
+
+        update_response = self._edit_report(
+            self.teacher,
+            report.id,
+            self._create_report_payload(
+                session.id,
+                summary="Updated report content",
+                attendees=15,
+                absentees=1,
+            ),
+        )
+        self.assertNotEqual(
+            update_response.status_code,
+            405,
+            update_response.data,
+        )
+        self.assertEqual(update_response.status_code, 200, update_response.data)
+
+        report.refresh_from_db()
+        self.assertEqual(report.tutorial_summary, "Updated report content")
+        self.assertEqual(report.number_of_attendees, 15)
+        self.assertEqual(report.number_of_absentees, 1)
+        self.assertEqual(
+            self._latest_history_change(report), ReportHistory.ChangeChoices.UPDATED
+        )
+
+        resubmit_response = self._review_report(
+            self.education_officer,
+            report,
+            is_approved=True,
+            description="Updated and approved",
+        )
+        self.assertEqual(resubmit_response.status_code, 201, resubmit_response.data)
+        self.assertEqual(
+            self._latest_history_change(report), ReportHistory.ChangeChoices.APPROVED
+        )
+
+        history_changes = list(
+            ReportHistory.objects.filter(report=report)
+            .order_by("id")
+            .values_list("change", flat=True)
+        )
+        self.assertIn(ReportHistory.ChangeChoices.CREATED, history_changes)
+        self.assertIn(ReportHistory.ChangeChoices.REJECTED, history_changes)
+        self.assertIn(ReportHistory.ChangeChoices.UPDATED, history_changes)
+        self.assertIn(ReportHistory.ChangeChoices.APPROVED, history_changes)
+
+    def test_late_rule_recalculates_on_rejected_report_edit(self) -> None:
+        session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        response = self._submit_report(self.teacher, session)
+        self.assertEqual(response.status_code, 201, response.data)
+        report = Report.objects.get(session=session)
+        self.assertFalse(report.is_delayed)
+        self.assertEqual(report.delay_time, 0)
+
+        self._review_report(
+            self.education_officer,
+            report,
+            is_approved=False,
+            description="Need more detail",
+        )
+
+        old_session_datetime = timezone.now().astimezone(self.local_tz) - timedelta(
+            hours=50
+        )
+        session.date = old_session_datetime.date()
+        session.end_time = time(
+            old_session_datetime.hour,
+            old_session_datetime.minute,
+            second=0,
+            microsecond=0,
+        )
+        session.save(update_fields=("date", "end_time"))
+
+        update_response = self._edit_report(
+            self.teacher,
+            report.id,
+            self._create_report_payload(session.id, summary="Updated after reject"),
+        )
+        self.assertEqual(update_response.status_code, 200, update_response.data)
+
+        report.refresh_from_db()
+        self.assertTrue(report.is_delayed)
+        self.assertGreater(report.delay_time, 0)
+
+    def test_report_status_properties_follow_latest_history(self) -> None:
+        create_session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, create_session)
+        created_report = Report.objects.get(session=create_session)
+
+        self.assertFalse(created_report.is_approved)
+        self.assertFalse(created_report.can_TCH_update)
+        self.assertIsNone(created_report.rej_desc)
+
+        self._review_report(
+            self.education_officer,
+            created_report,
+            is_approved=False,
+            description="Missing materials",
+        )
+        created_report.refresh_from_db()
+        self.assertFalse(created_report.is_approved)
+        self.assertTrue(created_report.can_TCH_update)
+        self.assertEqual(created_report.rej_desc, "Missing materials")
+
+        approved_session = self._create_session(
+            course=self.course,
+            hours_before_end=20,
+        )
+        self._submit_report(self.teacher, approved_session)
+        approved_report = Report.objects.get(session=approved_session)
+        self._review_report(
+            self.education_officer,
+            approved_report,
+            is_approved=True,
+            description="Looks good",
+        )
+        approved_report.refresh_from_db()
+        self.assertTrue(approved_report.is_approved)
+        self.assertFalse(approved_report.can_TCH_update)
