@@ -1485,3 +1485,280 @@ class ReportLifecycleAPITestCase(TestCase, EndpointTestsMixin):
         approved_report.refresh_from_db()
         self.assertTrue(approved_report.is_approved)
         self.assertFalse(approved_report.can_TCH_update)
+
+
+class ReportLifecycleOptionalTestCase(TestCase, EndpointTestsMixin):
+    def setUp(self) -> None:
+        # ==================
+        # setup the database
+        # ==================
+        self.admin = USER.objects.create_user(
+            "ADM2@example.com",
+            "0@dmin",
+            role=USER.RoleChoices.ADMIN,
+        )
+        self.education_officer = USER.objects.create_user(
+            "EDO2@example.com",
+            "1/edo",
+            role=USER.RoleChoices.EDUCATION_OFFICER,
+        )
+        self.teacher = USER.objects.create_user(
+            "TCH3@example.com",
+            "2-tch",
+            role=USER.RoleChoices.TEACHER,
+        )
+        self.teacher_profile = TeacherProfile.objects.create(
+            user=self.teacher,
+            first_name="Neda",
+            last_name="Rahimi",
+            mobile_number="091200000003",
+            landline_number="02130000003",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.school = School.objects.create(
+            name="Shahr",
+            email="shahr@school.com",
+            landline_number="0219999999",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.semester = Semester.objects.create(
+            school=self.school,
+            name="Fall 2",
+            start_date=timezone.now().date() - timedelta(days=30),
+            end_date=timezone.now().date() + timedelta(days=30),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.course = Course.objects.create(
+            semester=self.semester,
+            name="Machine Learning",
+            level=Course.LevelChoices.INTERMEDIATE,
+            start_date=timezone.now().date() - timedelta(days=20),
+            end_date=timezone.now().date() + timedelta(days=20),
+            sessions_length=Course.SessionLengthChoices.MIN60,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=self.course,
+            started_at=timezone.now().date() - timedelta(days=18),
+            ended_at=timezone.now().date() + timedelta(days=18),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.client = APIClient()
+        self.local_tz = pytz.timezone(TIME_ZONE)
+        self.report_url = reverse("education:report-list")
+        self.bulk_approval_url = reverse("education:report-bulk-approval")
+        self.teacher_report_stat_url = reverse("education:teacher-report-stat")
+
+    def _create_session(self, *, course: Course, date_shift: int) -> Session:
+        session_date = timezone.now().date() - timedelta(days=date_shift)
+        return Session.objects.create(
+            course=course,
+            date=session_date,
+            start_time=time(9, 0),
+            end_time=time(10, 0),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+    def _submit_report(self, user: USER, session: Session, *, summary: str) -> Report:
+        self.client.force_authenticate(user=user)
+        response = self.client.post(
+            self.report_url,
+            {
+                "session_id": session.id,
+                "tutorial_summary": summary,
+                "number_of_attendees": 7,
+                "number_of_absentees": 1,
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        return Report.objects.get(session=session)
+
+    def _review_report(
+        self,
+        user: USER,
+        report: Report,
+        *,
+        is_approved: bool,
+        description: str,
+    ) -> None:
+        self.client.force_authenticate(user=user)
+        payload = {
+            "report": report.id,
+            "is_approved": is_approved,
+            "description": description,
+        }
+        response = self.client.post(self.report_url, payload)
+        self.assertEqual(response.status_code, 201, response.data)
+
+    def test_teacher_report_stat_summary(self) -> None:
+        recent_session = self._create_session(course=self.course, date_shift=2)
+        pending_session = self._create_session(course=self.course, date_shift=5)
+        rejected_session = self._create_session(course=self.course, date_shift=6)
+
+        pending_report = self._submit_report(
+            self.teacher,
+            pending_session,
+            summary="Pending session",
+        )
+        rejected_report = self._submit_report(
+            self.teacher,
+            rejected_session,
+            summary="Rejected session",
+        )
+        approved_report = self._submit_report(
+            self.teacher,
+            recent_session,
+            summary="Approved session",
+        )
+
+        self._review_report(
+            self.education_officer,
+            rejected_report,
+            is_approved=False,
+            description="Need detail",
+        )
+        self._review_report(
+            self.education_officer,
+            approved_report,
+            is_approved=True,
+            description="Looks good",
+        )
+
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(self.teacher_report_stat_url, {"days": 30})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["approved"], 1)
+        self.assertEqual(response.data["rejected"], 1)
+        self.assertEqual(response.data["pending_review"], 1)
+        self.assertEqual(response.data["not_submitted"], 0)
+
+    def test_bulk_approve_multiple_reports(self) -> None:
+        session_one = self._create_session(course=self.course, date_shift=1)
+        session_two = self._create_session(course=self.course, date_shift=2)
+        report_one = self._submit_report(
+            self.teacher,
+            session_one,
+            summary="Session one",
+        )
+        report_two = self._submit_report(
+            self.teacher,
+            session_two,
+            summary="Session two",
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        response = self.client.post(
+            self.bulk_approval_url,
+            {"reports": [report_one.id, report_two.id]},
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+
+        for report in (report_one, report_two):
+            self.assertEqual(
+                ReportHistory.objects.filter(
+                    report=report,
+                )
+                .order_by("-id")
+                .first()
+                .change,
+                ReportHistory.ChangeChoices.APPROVED,
+            )
+
+    def test_bulk_approval_rejects_reviewed_reports(self) -> None:
+        session_one = self._create_session(course=self.course, date_shift=3)
+        session_two = self._create_session(course=self.course, date_shift=4)
+        pending_report = self._submit_report(
+            self.teacher,
+            session_one,
+            summary="Pending review",
+        )
+        reviewed_report = self._submit_report(
+            self.teacher,
+            session_two,
+            summary="Already approved",
+        )
+        self._review_report(
+            self.education_officer,
+            reviewed_report,
+            is_approved=True,
+            description="Approved",
+        )
+
+        self.client.force_authenticate(user=self.education_officer)
+        response = self.client.post(
+            self.bulk_approval_url,
+            {"reports": [pending_report.id, reviewed_report.id]},
+        )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn(str(reviewed_report.id), str(response.data))
+
+        self.assertEqual(
+            ReportHistory.objects.filter(
+                report=reviewed_report, change=ReportHistory.ChangeChoices.APPROVED
+            ).count(),
+            1,
+        )
+
+    def test_report_history_keeps_audit_information(self) -> None:
+        self.client.force_authenticate(user=self.teacher)
+        report_session = self._create_session(course=self.course, date_shift=1)
+        report = self._submit_report(
+            self.teacher,
+            report_session,
+            summary="History flow",
+        )
+
+        histories = ReportHistory.objects.filter(report=report)
+        self.assertEqual(histories.count(), 1)
+        initial_history = histories.first()
+        self.assertIsNotNone(initial_history.user)
+        self.assertEqual(initial_history.role, USER.RoleChoices.TEACHER)
+        self.assertIsNotNone(initial_history.modified_at)
+
+        self.client.force_authenticate(user=self.education_officer)
+        self._review_report(
+            self.education_officer,
+            report,
+            is_approved=False,
+            description="Rejected for audit",
+        )
+
+        final_history = (
+            ReportHistory.objects.filter(report=report).order_by("-id").first()
+        )
+        self.assertEqual(final_history.change, ReportHistory.ChangeChoices.REJECTED)
+        self.assertEqual(final_history.user, self.education_officer)
+        self.assertEqual(final_history.role, USER.RoleChoices.EDUCATION_OFFICER)
+        self.assertIsNotNone(final_history.modified_at)
+        self.assertEqual(final_history.description, "Rejected for audit")
+
+        total_changes = (
+            ReportHistory.objects.filter(report=report)
+            .order_by("id")
+            .values_list("change", flat=True)
+        )
+        self.assertIn(ReportHistory.ChangeChoices.CREATED, total_changes)
+        self.assertIn(ReportHistory.ChangeChoices.REJECTED, total_changes)
+
+    def test_teacher_report_stat_with_no_reports_returns_zero_counts(self) -> None:
+        self.client.force_authenticate(user=self.teacher)
+        response = self.client.get(self.teacher_report_stat_url, {"days": 30})
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["total_sessions"], 0)
+        self.assertEqual(response.data["not_submitted"], 0)
+        self.assertEqual(response.data["pending_review"], 0)
+        self.assertEqual(response.data["rejected"], 0)
+        self.assertEqual(response.data["approved"], 0)
