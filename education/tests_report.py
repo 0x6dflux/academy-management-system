@@ -418,3 +418,171 @@ class ReportLifecycleAPITestCase(TestCase, EndpointTestsMixin):
             reverse("education:report-detail", kwargs={"pk": other_report.id})
         )
         self.assertEqual(response.status_code, 404, response.data)
+
+    def test_education_officer_queue_contains_only_pending_reports(self) -> None:
+        pending = self._create_session(course=self.course, hours_before_end=20)
+        rejected = self._create_session(course=self.course, hours_before_end=21)
+        approved = self._create_session(course=self.course, hours_before_end=22)
+        updated = self._create_session(course=self.course, hours_before_end=23)
+
+        pending_report = self._submit_report(self.teacher, pending)
+        rejected_report = self._submit_report(self.teacher, rejected)
+        approved_report = self._submit_report(self.teacher, approved)
+        updated_report = self._submit_report(self.teacher, updated)
+
+        pending_report = Report.objects.get(pk=pending_report.data["id"])
+        rejected_report = Report.objects.get(pk=rejected_report.data["id"])
+        approved_report = Report.objects.get(pk=approved_report.data["id"])
+        updated_report = Report.objects.get(pk=updated_report.data["id"])
+
+        self._review_report(
+            self.education_officer,
+            rejected_report,
+            is_approved=False,
+            description="Needs details",
+        )
+        self._review_report(
+            self.education_officer,
+            approved_report,
+            is_approved=True,
+            description="Looks fine",
+        )
+        self._review_report(
+            self.education_officer,
+            updated_report,
+            is_approved=False,
+            description="First",
+        )
+        self._edit_report(
+            self.teacher,
+            updated_report.id,
+            self._create_report_payload(updated_report.session.id, summary="Updated"),
+        )
+
+        self.client.force_authenticate(self.education_officer)
+        response = self.client.get(self.report_url)
+        self.assertEqual(response.status_code, 200, response.data)
+        ids = {item["id"] for item in response.data}
+        self.assertIn(pending_report.id, ids)
+        self.assertIn(updated_report.id, ids)
+        self.assertNotIn(rejected_report.id, ids)
+        self.assertNotIn(approved_report.id, ids)
+
+    def test_admin_sees_all_reports(self) -> None:
+        pending = self._create_session(course=self.course, hours_before_end=20)
+        rejected = self._create_session(course=self.other_course, hours_before_end=20)
+        approved = self._create_session(course=self.other_course, hours_before_end=20)
+
+        pending_report = Report.objects.create(
+            session=pending,
+            teacher_profile=self.teacher_profile,
+            tutorial_summary="Pending report",
+            number_of_attendees=10,
+            number_of_absentees=1,
+            is_delayed=False,
+            delay_time=0,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        ReportHistory.objects.create(
+            report=pending_report,
+            user=self.teacher,
+            role=USER.RoleChoices.TEACHER,
+            change=ReportHistory.ChangeChoices.CREATED,
+        )
+        Report.objects.create(
+            session=rejected,
+            teacher_profile=self.teacher_profile,
+            tutorial_summary="Rejected report",
+            number_of_attendees=8,
+            number_of_absentees=0,
+            is_delayed=False,
+            delay_time=0,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        approved_report = Report.objects.create(
+            session=approved,
+            teacher_profile=self.teacher_profile,
+            tutorial_summary="Approved report",
+            number_of_attendees=9,
+            number_of_absentees=2,
+            is_delayed=False,
+            delay_time=0,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        rejected_report = Report.objects.get(session=rejected)
+        ReportHistory.objects.create(
+            report=approved_report,
+            user=self.teacher,
+            role=USER.RoleChoices.TEACHER,
+            change=ReportHistory.ChangeChoices.CREATED,
+        )
+
+        ReportHistory.objects.create(
+            report=rejected_report,
+            user=self.teacher,
+            role=USER.RoleChoices.TEACHER,
+            change=ReportHistory.ChangeChoices.CREATED,
+        )
+
+        ReportHistory.objects.create(
+            report=rejected_report,
+            user=self.education_officer,
+            role=USER.RoleChoices.EDUCATION_OFFICER,
+            change=ReportHistory.ChangeChoices.REJECTED,
+            description="No",
+        )
+        ReportHistory.objects.create(
+            report=approved_report,
+            user=self.education_officer,
+            role=USER.RoleChoices.EDUCATION_OFFICER,
+            change=ReportHistory.ChangeChoices.APPROVED,
+            description="Yes",
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(self.report_url)
+        self.assertEqual(response.status_code, 200, response.data)
+        ids = {item["id"] for item in response.data}
+        self.assertIn(pending_report.id, ids)
+        self.assertIn(rejected_report.id, ids)
+        self.assertIn(approved_report.id, ids)
+
+    def test_education_officer_cannot_retrieve_finalized_report(self) -> None:
+        approved_session = self._create_session(course=self.course, hours_before_end=20)
+        rejected_session = self._create_session(course=self.course, hours_before_end=20)
+
+        approved_report = self._submit_report(self.teacher, approved_session)
+        rejected_report = self._submit_report(self.teacher, rejected_session)
+        approved_report = Report.objects.get(pk=approved_report.data["id"])
+        rejected_report = Report.objects.get(pk=rejected_report.data["id"])
+
+        self._review_report(
+            self.education_officer,
+            approved_report,
+            is_approved=True,
+            description="Approved",
+        )
+        self._review_report(
+            self.education_officer,
+            rejected_report,
+            is_approved=False,
+            description="Rejected",
+        )
+
+        approved_response = self.client.get(
+            reverse(
+                "education:report-detail",
+                kwargs={"pk": approved_report.id},
+            )
+        )
+        rejected_response = self.client.get(
+            reverse(
+                "education:report-detail",
+                kwargs={"pk": rejected_report.id},
+            )
+        )
+        self.assertEqual(approved_response.status_code, 404)
+        self.assertEqual(rejected_response.status_code, 404)
