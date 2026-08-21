@@ -1,7 +1,8 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from account.models import TeacherProfile, User
@@ -3092,6 +3093,123 @@ class EducationSerializerValidationTestCase(TestCase):
             "ended_at": date(2026, 12, 20),
         }
         serializer = TeacherCourseModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_teacher_course_cannot_change_teacher_for_active_course(self) -> None:
+        now = timezone.now().date()
+        past_school = self.school
+        past_semester = Semester.objects.create(
+            school=past_school,
+            name="Past Semester",
+            start_date=now - timedelta(days=40),
+            end_date=now + timedelta(days=20),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        past_course = Course.objects.create(
+            semester=past_semester,
+            name="Past Python Course",
+            level=Course.LevelChoices.BASIC,
+            start_date=now - timedelta(days=40),
+            end_date=now + timedelta(days=20),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        contract = TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=past_course,
+            started_at=now - timedelta(days=10),
+            ended_at=now + timedelta(days=10),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        new_teacher = USER.objects.create_user(
+            "teacher3@example.com",
+            "123",
+            role="TCH",
+        )
+        new_profile = TeacherProfile.objects.create(
+            user=new_teacher,
+            first_name="Hamed",
+            last_name="Alavi",
+            mobile_number="0989191234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        serializer = TeacherCourseModelSerializer(
+            contract,
+            data={
+                "teacher_profile_id": new_profile.pk,
+                "course_id": past_course.pk,
+                "started_at": now + timedelta(days=1),
+                "ended_at": now + timedelta(days=10),
+            },
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Changing the teacher during the course is not possible!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_can_change_teacher_before_course_start(self) -> None:
+        now = timezone.now().date()
+        future_semester = Semester.objects.create(
+            school=self.school,
+            name="Future Semester",
+            start_date=now + timedelta(days=1),
+            end_date=now + timedelta(days=80),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        future_course = Course.objects.create(
+            semester=future_semester,
+            name="Future Python Course",
+            level=Course.LevelChoices.BASIC,
+            start_date=now + timedelta(days=1),
+            end_date=now + timedelta(days=70),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        contract = TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=future_course,
+            started_at=now + timedelta(days=5),
+            ended_at=now + timedelta(days=60),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        new_teacher = USER.objects.create_user(
+            "teacher4@example.com",
+            "123",
+            role="TCH",
+        )
+        new_profile = TeacherProfile.objects.create(
+            user=new_teacher,
+            first_name="Kianoosh",
+            last_name="Rahimi",
+            mobile_number="0989191234568",
+            landline_number="0982112345679",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        serializer = TeacherCourseModelSerializer(
+            contract,
+            data={
+                "teacher_profile_id": new_profile.pk,
+                "course_id": future_course.pk,
+                "started_at": now + timedelta(days=5),
+                "ended_at": now + timedelta(days=60),
+            },
+        )
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
