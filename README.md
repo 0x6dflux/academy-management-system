@@ -204,9 +204,49 @@ Phase 2 functionality is covered by automated tests, including:
 
 Coverage reports are updated as part of the development workflow.
 
+## **Phase 3 — Session Reporting Cycle**
+
+Phase 3 covers session reporting, moderation, and teacher-facing reporting analytics.
+
+### Implemented
+
+- **Report API**
+  - Teachers submit reports for their assigned sessions
+  - Validation prevents duplicate reports per session
+  - Late submission detection with delay duration (48-hour rule)
+  - Teachers can update rejected reports for resubmission
+  - Serial-numbered report records with role-aware status visibility
+
+- **Review & Audit API**
+  - Education Officers and Admins approve or reject reports
+  - Rejections require a non-blank reason
+  - Report history logs each approval/rejection/comment action
+  - Bulk approval endpoint for multiple pending reports
+
+- **Teacher Dashboard API**
+  - Teacher schedule endpoint for course/session assignment visibility
+  - Teacher report statistics endpoint for submitted, pending, rejected, and approved counts
+  - Configurable time-window query parameters
+
+- **Reporting Filters and Permissions**
+  - Role-based endpoints for Teacher, Education Officer, and Admin
+  - Filtering and searching by school, course, teacher name, and session date
+  - Education Officer queue returns only non-finalized reports
+
+### Tests
+
+Phase 3 is covered by automated tests, including:
+
+- Report permission matrix and unsupported method constraints
+- Teacher ownership, session ownership, and duplicate-report protection
+- Delay calculations and late-submission behavior
+- Report approval/rejection flow and idempotency guards
+- Bulk approval validation and history patch rules
+- Dashboard statistics and filtering behavior
+
 ## Development Status
 
 - **Phase 1:** Completed
 - **Phase 2:** Completed
-- **Phase 3:** Pending
+- **Phase 3:** Completed
 - **Phase 4:** Pending
