@@ -907,6 +907,34 @@ class AccountUserManagerTestCase(TestCase):
         user.soft_delete(updated_by=user)
         self.assertEqual(USER.all_objects.count(), count_before)
 
+    def test_create_superuser_with_invalid_staff_flag(self):
+        with self.assertRaisesMessage(
+            ValueError, "Superuser must have is_staff=True."
+        ):
+            USER.objects.create_superuser(
+                "bad-staff@example.com",
+                "badpass",
+                role="ADM",
+                is_staff=False,
+            )
+
+    def test_create_superuser_with_invalid_superuser_flag(self):
+        with self.assertRaisesMessage(
+            ValueError, "Superuser must have is_superuser=True."
+        ):
+            USER.objects.create_superuser(
+                "bad-superuser@example.com",
+                "badpass",
+                role="ADM",
+                is_superuser=False,
+            )
+
+    def test_create_user_with_missing_email(self):
+        with self.assertRaisesMessage(
+            ValueError, "The given email must be set"
+        ):
+            USER.objects.create_user("", "password", role="TCH")
+
 
 class AccountManagementCommandEdgeCasesTestCase(TestCase):
     def setUp(self):
