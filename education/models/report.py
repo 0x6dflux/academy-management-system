@@ -1,6 +1,10 @@
 from django.db import models
 
+from account.models import User
+from education.models.report_history import ReportHistory
 from system.models import BaseModel, SerialNumberAbbreviation
+
+USER = User
 
 
 def get_next_serial() -> int:
@@ -40,6 +44,34 @@ class Report(BaseModel):
         unique=True,
         default=get_next_serial,
     )
+
+    @property
+    def is_approved(self) -> bool:
+        return (
+            self.histories.last().change == ReportHistory.ChangeChoices.APPROVED  # type: ignore
+            and self.histories.last().role == USER.RoleChoices.EDUCATION_OFFICER  # type: ignore
+            # the above condition is only for double-checking
+        )
+
+    @property
+    def can_TCH_update(self) -> bool:
+        return (
+            self.histories.last().change == ReportHistory.ChangeChoices.REJECTED  # type: ignore
+            and self.histories.last().role == USER.RoleChoices.EDUCATION_OFFICER  # type: ignore
+            # the above condition is only for double-checking
+        )
+
+    @property
+    def rej_desc(self) -> str | None:
+        """This property returns the latest rejection description."""
+
+        latest_rejection = self.histories.filter(  # type: ignore
+            change=ReportHistory.ChangeChoices.REJECTED
+        ).last()
+
+        # to have a unique format in the response
+        # in this way testing will be easier
+        return latest_rejection.description if latest_rejection else None
 
     @property
     def serial_number(self) -> str:  # RPXXXX

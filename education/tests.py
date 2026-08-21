@@ -1,7 +1,8 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient, APIRequestFactory
 
 from account.models import TeacherProfile, User
@@ -12,6 +13,12 @@ from education.models import (
     Semester,
     Session,
     TeacherCourse,
+)
+from education.serializers.course_serializers import CourseModelSerializer
+from education.serializers.semester_serializers import SemesterModelSerializer
+from education.serializers.session_serializers import SessionModelSerializer
+from education.serializers.teacher_course_serializer import (
+    TeacherCourseModelSerializer,
 )
 from education.views import HomeAPIView
 from system.utils import EndpointTestsMixin, ModelTestsMixin
@@ -384,7 +391,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -407,7 +414,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -961,7 +968,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -1283,7 +1290,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -1636,7 +1643,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -1996,7 +2003,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
         body = {}
 
         for url in urls:
-            for method in {"head", "options"}:
+            for method in ("head", "options"):
                 response = self.run_server_with_APIClient(
                     method,
                     url,
@@ -2342,68 +2349,68 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "TeacherCourse item is hard deleted!",
         )
 
-    def test_education_teacher_course_multiple_teachers(self):
-        school = School.objects.create(
-            name="Rajaei",
-            email="rajaei@google.com",
-            landline_number="0982112345678",
-            created_by=self.education_officer,
-            updated_by=self.education_officer,
-        )
+    # def test_education_teacher_course_multiple_teachers(self):
+    #     school = School.objects.create(
+    #         name="Rajaei",
+    #         email="rajaei@google.com",
+    #         landline_number="0982112345678",
+    #         created_by=self.education_officer,
+    #         updated_by=self.education_officer,
+    #     )
 
-        semester = Semester.objects.create(
-            school=school,
-            name="First Semester",
-            start_date="2026-09-23",
-            end_date="2027-01-20",
-            is_summer_semester=False,
-            created_by=self.education_officer,
-            updated_by=self.education_officer,
-        )
+    #     semester = Semester.objects.create(
+    #         school=school,
+    #         name="First Semester",
+    #         start_date="2026-09-23",
+    #         end_date="2027-01-20",
+    #         is_summer_semester=False,
+    #         created_by=self.education_officer,
+    #         updated_by=self.education_officer,
+    #     )
 
-        course = Course.objects.create(
-            semester=semester,
-            name="Python Programming",
-            level=Course.LevelChoices.BASIC,
-            start_date="2026-10-01",
-            end_date="2027-01-10",
-            sessions_length=Course.SessionLengthChoices.MIN90,
-            created_by=self.education_officer,
-            updated_by=self.education_officer,
-        )
+    #     course = Course.objects.create(
+    #         semester=semester,
+    #         name="Python Programming",
+    #         level=Course.LevelChoices.BASIC,
+    #         start_date="2026-10-01",
+    #         end_date="2027-01-10",
+    #         sessions_length=Course.SessionLengthChoices.MIN90,
+    #         created_by=self.education_officer,
+    #         updated_by=self.education_officer,
+    #     )
 
-        url = reverse("education:teacher-course-list")
+    #     url = reverse("education:teacher-course-list")
 
-        body1 = {
-            "teacher_profile_id": self.teacher_profile.id,
-            "course_id": course.id,
-            "started_at": "2026-10-05",
-            "ended_at": "2026-11-05",
-        }
-        body2 = {
-            "teacher_profile_id": self.teacher_profile2.id,
-            "course_id": course.id,
-            "started_at": "2026-11-06",
-            "ended_at": "2026-12-05",
-        }
+    #     body1 = {
+    #         "teacher_profile_id": self.teacher_profile.id,
+    #         "course_id": course.id,
+    #         "started_at": "2026-10-05",
+    #         "ended_at": "2026-11-05",
+    #     }
+    #     body2 = {
+    #         "teacher_profile_id": self.teacher_profile2.id,
+    #         "course_id": course.id,
+    #         "started_at": "2026-11-06",
+    #         "ended_at": "2026-12-05",
+    #     }
 
-        response1 = self.run_server_with_APIClient(
-            "post",
-            url,
-            body1,
-            authentication=True,
-            user=self.education_officer,
-        )
-        response2 = self.run_server_with_APIClient(
-            "post",
-            url,
-            body2,
-            authentication=True,
-            user=self.education_officer,
-        )
+    #     response1 = self.run_server_with_APIClient(
+    #         "post",
+    #         url,
+    #         body1,
+    #         authentication=True,
+    #         user=self.education_officer,
+    #     )
+    #     response2 = self.run_server_with_APIClient(
+    #         "post",
+    #         url,
+    #         body2,
+    #         authentication=True,
+    #         user=self.education_officer,
+    #     )
 
-        self.assertEqual(response1.status_code, 201, "Unsuccessful POST with body1")
-        self.assertEqual(response2.status_code, 201, "Unsuccessful POST with body2")
+    #     self.assertEqual(response1.status_code, 201, "Unsuccessful POST with body1")
+    #     self.assertEqual(response2.status_code, 201, "Unsuccessful POST with body2")
 
     def test_education_teacher_schedule_rejects_unsupported_methods(self):
         url = reverse("education:teacher-schedule")
@@ -2657,6 +2664,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Teacher received invalid number of sessions!",
         )
 
+        course_data["sessions"][0].pop("report")
         self.assertEqual(
             course_data["sessions"][0],
             {
@@ -2667,6 +2675,7 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             "Invalid first session!",
         )
 
+        course_data["sessions"][1].pop("report")
         self.assertEqual(
             course_data["sessions"][1],
             {
@@ -2723,3 +2732,646 @@ class EducationEndpointsTestCases(TestCase, EndpointTestsMixin):
             returned_course_ids,
             "Admin did not receive the other course!",
         )
+
+
+class EducationSerializerValidationTestCase(TestCase):
+    def setUp(self):
+        self.admin = USER.objects.create_user("admin@example.com", "123", role="ADM")
+        self.teacher = USER.objects.create_user(
+            "teacher@example.com", "123", role="TCH"
+        )
+        self.teacher_profile = TeacherProfile.objects.create(
+            user=self.teacher,
+            first_name="Mahdi",
+            last_name="Mohammadi",
+            mobile_number="0989361234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.school = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.semester = Semester.objects.create(
+            school=self.school,
+            name="First Semester",
+            start_date=date(2026, 9, 23),
+            end_date=date(2027, 1, 20),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.course = Course.objects.create(
+            semester=self.semester,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date=date(2026, 10, 1),
+            end_date=date(2027, 1, 10),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+    # =====================
+    # SemesterModelSerializer
+    # =====================
+    def test_semester_start_equals_end_date(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "Invalid Semester",
+            "start_date": date(2026, 9, 23),
+            "end_date": date(2026, 9, 23),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Semester shall not end before start_date!", str(serializer.errors)
+        )
+
+    def test_semester_start_after_end_date(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "Invalid Semester",
+            "start_date": date(2027, 1, 20),
+            "end_date": date(2026, 9, 23),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Semester shall not end before start_date!", str(serializer.errors)
+        )
+
+    def test_semester_overlapping_dates(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "Overlapping Semester",
+            "start_date": date(2026, 11, 1),
+            "end_date": date(2027, 2, 1),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Semester shall not overlap with previous semesters!",
+            str(serializer.errors),
+        )
+
+    def test_semester_valid_dates(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "Valid Semester",
+            "start_date": date(2027, 2, 1),
+            "end_date": date(2027, 6, 30),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_semester_update_same_dates(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "First Semester Updated",
+            "start_date": date(2026, 9, 23),
+            "end_date": date(2027, 1, 20),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(self.semester, data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_semester_non_overlapping_sequential(self):
+        data = {
+            "school_id": self.school.pk,
+            "name": "Next Semester",
+            "start_date": date(2027, 1, 21),
+            "end_date": date(2027, 6, 30),
+            "is_summer_semester": False,
+        }
+        serializer = SemesterModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    # =====================
+    # CourseModelSerializer
+    # =====================
+    def test_course_start_after_end_date(self):
+        data = {
+            "semester_id": self.semester.pk,
+            "name": "Invalid Course",
+            "level": Course.LevelChoices.BASIC,
+            "start_date": date(2027, 1, 10),
+            "end_date": date(2026, 10, 1),
+            "sessions_length": Course.SessionLengthChoices.MIN90,
+        }
+        serializer = CourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("Course shall not end before start_date!", str(serializer.errors))
+
+    def test_course_start_before_semester_start(self):
+        data = {
+            "semester_id": self.semester.pk,
+            "name": "Early Course",
+            "level": Course.LevelChoices.BASIC,
+            "start_date": date(2026, 8, 1),
+            "end_date": date(2026, 12, 1),
+            "sessions_length": Course.SessionLengthChoices.MIN90,
+        }
+        serializer = CourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Course start_date shall be within the semester duration!",
+            str(serializer.errors),
+        )
+
+    def test_course_end_after_semester_end(self):
+        data = {
+            "semester_id": self.semester.pk,
+            "name": "Late Course",
+            "level": Course.LevelChoices.BASIC,
+            "start_date": date(2026, 10, 1),
+            "end_date": date(2027, 3, 1),
+            "sessions_length": Course.SessionLengthChoices.MIN90,
+        }
+        serializer = CourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Course end_date shall be within the semester duration!",
+            str(serializer.errors),
+        )
+
+    def test_course_valid_dates_within_semester(self):
+        data = {
+            "semester_id": self.semester.pk,
+            "name": "Valid Course",
+            "level": Course.LevelChoices.BASIC,
+            "start_date": date(2026, 10, 1),
+            "end_date": date(2027, 1, 10),
+            "sessions_length": Course.SessionLengthChoices.MIN90,
+        }
+        serializer = CourseModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_course_update_extending_beyond_semester(self):
+        data = {
+            "semester_id": self.semester.pk,
+            "name": "Python Programming",
+            "level": Course.LevelChoices.BASIC,
+            "start_date": date(2026, 10, 1),
+            "end_date": date(2027, 3, 1),
+            "sessions_length": Course.SessionLengthChoices.MIN90,
+        }
+        serializer = CourseModelSerializer(self.course, data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Course end_date shall be within the semester duration!",
+            str(serializer.errors),
+        )
+
+    # =====================
+    # SessionModelSerializer
+    # =====================
+    def test_session_start_equals_end_time(self):
+        data = {
+            "course_id": self.course.pk,
+            "date": date(2026, 10, 15),
+            "start_time": time(10, 0),
+            "end_time": time(10, 0),
+        }
+        serializer = SessionModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Session shall not end before start_time!", str(serializer.errors)
+        )
+
+    def test_session_start_after_end_time(self):
+        data = {
+            "course_id": self.course.pk,
+            "date": date(2026, 10, 15),
+            "start_time": time(11, 30),
+            "end_time": time(10, 0),
+        }
+        serializer = SessionModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Session shall not end before start_time!", str(serializer.errors)
+        )
+
+    def test_session_wrong_length(self):
+        data = {
+            "course_id": self.course.pk,
+            "date": date(2026, 10, 15),
+            "start_time": time(10, 0),
+            "end_time": time(12, 0),
+        }
+        serializer = SessionModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("Invalid session length!", str(serializer.errors))
+
+    def test_session_date_outside_course_range(self):
+        data = {
+            "course_id": self.course.pk,
+            "date": date(2026, 9, 1),
+            "start_time": time(10, 0),
+            "end_time": time(11, 30),
+        }
+        serializer = SessionModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Session date shall be within the course duration!",
+            str(serializer.errors),
+        )
+
+    def test_session_valid(self):
+        data = {
+            "course_id": self.course.pk,
+            "date": date(2026, 10, 15),
+            "start_time": time(10, 0),
+            "end_time": time(11, 30),
+        }
+        serializer = SessionModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    # =====================
+    # TeacherCourseModelSerializer
+    # =====================
+    def test_teacher_course_already_has_teacher(self):
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=self.course,
+            started_at=date(2026, 10, 5),
+            ended_at=date(2026, 12, 20),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        teacher2 = USER.objects.create_user("teacher2@example.com", "123", role="TCH")
+        profile2 = TeacherProfile.objects.create(
+            user=teacher2,
+            first_name="Ali",
+            last_name="Alizadeh",
+            mobile_number="0989191234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        data = {
+            "teacher_profile_id": profile2.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 12, 21),
+            "ended_at": date(2027, 1, 10),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("This course already has a teacher!", str(serializer.errors))
+
+    def test_teacher_course_started_at_equals_ended_at(self):
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 10, 5),
+            "ended_at": date(2026, 10, 5),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "A teacher contract shall be at least one-day long!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_started_after_ended(self):
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 12, 20),
+            "ended_at": date(2026, 10, 5),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "A teacher contract shall be at least one-day long!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_started_before_course(self):
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 9, 1),
+            "ended_at": date(2026, 12, 20),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "A teacher shall start their job within the course duration!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_ended_after_course(self):
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 10, 5),
+            "ended_at": date(2027, 2, 1),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "A teacher shall end their job within the course duration!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_valid(self):
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 10, 5),
+            "ended_at": date(2026, 12, 20),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_teacher_course_cannot_change_teacher_for_active_course(self) -> None:
+        now = timezone.now().date()
+        past_school = self.school
+        past_semester = Semester.objects.create(
+            school=past_school,
+            name="Past Semester",
+            start_date=now - timedelta(days=40),
+            end_date=now + timedelta(days=20),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        past_course = Course.objects.create(
+            semester=past_semester,
+            name="Past Python Course",
+            level=Course.LevelChoices.BASIC,
+            start_date=now - timedelta(days=40),
+            end_date=now + timedelta(days=20),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        contract = TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=past_course,
+            started_at=now - timedelta(days=10),
+            ended_at=now + timedelta(days=10),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        new_teacher = USER.objects.create_user(
+            "teacher3@example.com",
+            "123",
+            role="TCH",
+        )
+        new_profile = TeacherProfile.objects.create(
+            user=new_teacher,
+            first_name="Hamed",
+            last_name="Alavi",
+            mobile_number="0989191234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        serializer = TeacherCourseModelSerializer(
+            contract,
+            data={
+                "teacher_profile_id": new_profile.pk,
+                "course_id": past_course.pk,
+                "started_at": now + timedelta(days=1),
+                "ended_at": now + timedelta(days=10),
+            },
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "Changing the teacher during the course is not possible!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_can_change_teacher_before_course_start(self) -> None:
+        now = timezone.now().date()
+        future_semester = Semester.objects.create(
+            school=self.school,
+            name="Future Semester",
+            start_date=now + timedelta(days=1),
+            end_date=now + timedelta(days=80),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        future_course = Course.objects.create(
+            semester=future_semester,
+            name="Future Python Course",
+            level=Course.LevelChoices.BASIC,
+            start_date=now + timedelta(days=1),
+            end_date=now + timedelta(days=70),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        contract = TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=future_course,
+            started_at=now + timedelta(days=5),
+            ended_at=now + timedelta(days=60),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        new_teacher = USER.objects.create_user(
+            "teacher4@example.com",
+            "123",
+            role="TCH",
+        )
+        new_profile = TeacherProfile.objects.create(
+            user=new_teacher,
+            first_name="Kianoosh",
+            last_name="Rahimi",
+            mobile_number="0989191234568",
+            landline_number="0982112345679",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        serializer = TeacherCourseModelSerializer(
+            contract,
+            data={
+                "teacher_profile_id": new_profile.pk,
+                "course_id": future_course.pk,
+                "started_at": now + timedelta(days=5),
+                "ended_at": now + timedelta(days=60),
+            },
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class EducationCourseFilteringTestCase(TestCase, EndpointTestsMixin):
+    def setUp(self):
+        self.admin = USER.objects.create_user("ADM@example.com", "0@dmin", role="ADM")
+        self.education_officer = USER.objects.create_user(
+            "EDO@example.com", "2#edo", role="EDO"
+        )
+        self.teacher = USER.objects.create_user("TCH@example.com", "3-tch", role="TCH")
+        self.teacher_profile = TeacherProfile.objects.create(
+            user=self.teacher,
+            first_name="Mahdi",
+            last_name="Mohammadi",
+            mobile_number="0989361234567",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.school1 = School.objects.create(
+            name="Rajaei",
+            email="rajaei@google.com",
+            landline_number="0982112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.school2 = School.objects.create(
+            name="Pandi",
+            email="pandi@google.com",
+            landline_number="0982112345679",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.semester1 = Semester.objects.create(
+            school=self.school1,
+            name="First Semester",
+            start_date=date(2026, 9, 23),
+            end_date=date(2027, 1, 20),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.semester2 = Semester.objects.create(
+            school=self.school2,
+            name="Second Semester",
+            start_date=date(2027, 2, 1),
+            end_date=date(2027, 6, 30),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.course1 = Course.objects.create(
+            semester=self.semester1,
+            name="Python Programming",
+            level=Course.LevelChoices.BASIC,
+            start_date=date(2026, 10, 1),
+            end_date=date(2027, 1, 10),
+            sessions_length=Course.SessionLengthChoices.MIN90,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.course2 = Course.objects.create(
+            semester=self.semester2,
+            name="Django Advanced",
+            level=Course.LevelChoices.ADVANCED,
+            start_date=date(2027, 2, 15),
+            end_date=date(2027, 6, 20),
+            sessions_length=Course.SessionLengthChoices.MIN120,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=self.course1,
+            started_at=date(2026, 10, 5),
+            ended_at=date(2026, 12, 20),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.client = APIClient()
+
+    def test_filter_by_school_name(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"school": "Rajaei"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course1.id)  # type: ignore
+
+    def test_filter_by_semester_name(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"semester": "Second Semester"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course2.id)  # type: ignore
+
+    def test_filter_by_course_name(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"course": "Python Programming"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course1.id)  # type: ignore
+
+    def test_filter_by_level(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"level": 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course2.id)  # type: ignore
+
+    def test_filter_by_sessions_length(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"sessions_length": 120})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course2.id)  # type: ignore
+
+    def test_filter_by_teacher_name(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"teacher_first_name": "Mahdi"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course1.id)  # type: ignore
+
+    def test_search_by_school_name(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"search": "Rajaei"})
+
+        self.assertEqual(response.status_code, 200)
+        course_ids = [c["id"] for c in response.data]  # type: ignore
+        self.assertIn(self.course1.id, course_ids)
+
+    def test_combined_filter_and_search(self):
+        url = reverse("education:course-list")
+        self.client.force_authenticate(user=self.education_officer)  # type: ignore
+
+        response = self.client.get(url, {"school": "Rajaei", "search": "Python"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)  # type: ignore
+        self.assertEqual(response.data[0]["id"], self.course1.id)  # type: ignore

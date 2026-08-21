@@ -1,3 +1,4 @@
+from django.utils.timezone import now
 from rest_framework import serializers
 
 from account.models import TeacherProfile
@@ -41,13 +42,31 @@ class TeacherCourseModelSerializer(SetUserModifierMixin, serializers.ModelSerial
             course = data.get("course", self.instance.course)
             # [HINT] due to `source="course"` at line 19, the DRF will set the
             # course object on `data` with `course` key.
+            teacher_profile = data.get("teacher_profile", self.instance.teacher_profile)
         else:
             # `POST`
             started_at = data.get("started_at")
             ended_at = data.get("ended_at")
             course = data.get("course")
+            teacher_profile = data.get("teacher_profile")
             # [HINT] due to `source="course"` at line 19, the DRF will set the
             # course object on `data` with `course` key.
+
+        if self.instance:
+            # `PUT` or `PATCH`
+            if (
+                self.instance.teacher_profile_id != teacher_profile.id  # type: ignore
+                and not now().date() < course.start_date  # type: ignore
+            ):
+                raise serializers.ValidationError(
+                    "Changing the teacher during the course is not possible! "
+                    "Update the ended_at of the previous teacher and then, "
+                    "assign the new teacher to this course."
+                )
+        else:
+            # `POST`
+            if TeacherCourse.objects.filter(course=course).exists():  # type: ignore
+                raise serializers.ValidationError("This course already has a teacher!")
 
         if not started_at < ended_at:  # type: ignore
             raise serializers.ValidationError(
