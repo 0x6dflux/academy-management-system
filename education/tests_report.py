@@ -158,3 +158,116 @@ class ReportLifecycleAPITestCase(TestCase, EndpointTestsMixin):
         self.report_history_url = reverse("education:report-history-list")
         self.bulk_approval_url = reverse("education:report-bulk-approval")
         self.teacher_report_stat_url = reverse("education:teacher-report-stat")
+
+    def _session_payload_relative(self, *, hours_before_end: int) -> dict[str, Any]:
+        """
+        Build a safe session payload around now using local timezone.
+
+        The session end time is guaranteed to be `hours_before_end` hours before now
+        in the application time zone.
+        """
+
+        end_dt = timezone.now().astimezone(self.local_tz) - timedelta(
+            hours=hours_before_end
+        )
+        start_dt = end_dt - timedelta(hours=1)
+
+        return {
+            "date": end_dt.date(),
+            "start_time": datetime(
+                2000, 1, 1, hour=start_dt.hour, minute=start_dt.minute
+            ).time(),
+            "end_time": datetime(
+                2000, 1, 1, hour=end_dt.hour, minute=end_dt.minute
+            ).time(),
+        }
+
+    def _session_payload_on_date(
+        self,
+        session_date: datetime.date,
+        *,
+        start_time: time = time(9, 0),
+        end_time: time = time(10, 30),
+    ) -> dict[str, Any]:
+        return {
+            "date": session_date,
+            "start_time": start_time,
+            "end_time": end_time,
+        }
+
+    def _create_session(self, *, course: Course, **time_kwargs) -> Session:
+        if "hours_before_end" in time_kwargs:
+            session_payload = self._session_payload_relative(**time_kwargs)  # type: ignore[arg-type]
+        else:
+            session_payload = self._session_payload_on_date(
+                session_date=time_kwargs["date"],  # type: ignore[index]
+                start_time=time_kwargs.get("start_time", time(9, 0)),
+                end_time=time_kwargs.get("end_time", time(10, 0)),
+            )
+
+        return Session.objects.create(
+            course=course,
+            date=session_payload["date"],
+            start_time=session_payload["start_time"],
+            end_time=session_payload["end_time"],
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+    def _create_report_payload(
+        self,
+        session_id: int,
+        *,
+        summary: str = "A short lesson about conditionals.",
+        attendees: int = 10,
+        absentees: int = 2,
+    ) -> dict[str, Any]:
+        return {
+            "session_id": session_id,
+            "tutorial_summary": summary,
+            "number_of_attendees": attendees,
+            "number_of_absentees": absentees,
+        }
+
+    def _submit_report(
+        self,
+        user,
+        session: Session,
+        payload: dict[str, Any] | None = None,
+    ):
+        payload = payload or self._create_report_payload(session.id)
+        self.client.force_authenticate(user=user)
+        return self.client.post(self.report_url, payload)
+
+    def _edit_report(
+        self,
+        user,
+        report_id: int,
+        payload: dict[str, Any],
+    ):
+        self.client.force_authenticate(user=user)
+        return self.client.patch(
+            reverse("education:report-detail", kwargs={"pk": report_id}),
+            payload,
+        )
+
+    def _review_report(
+        self,
+        user,
+        report: Report,
+        *,
+        is_approved: bool,
+        description: str,
+    ):
+        self.client.force_authenticate(user=user)
+        payload = {
+            "report": report.id,
+            "is_approved": is_approved,
+            "description": description,
+        }
+        return self.client.post(self.report_url, payload)
+
+    def _latest_history_change(self, report: Report) -> int:
+        return int(
+            ReportHistory.objects.filter(report=report).order_by("-id").first().change
+        )  # type: ignore[union-attr]
