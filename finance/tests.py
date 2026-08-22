@@ -1,21 +1,19 @@
-from __future__ import annotations
+from datetime import timedelta
+from decimal import Decimal
 
-from typing import TYPE_CHECKING
-
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils.timezone import now
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework.views import APIView
 
+from account.models import TeacherProfile, User
+from education.models import School, Semester
+from finance.models import Wage, WageRate
 from finance.views import HomeAPIView
 
-if TYPE_CHECKING:
-    from account.models import User
-
-
-USER: User = get_user_model()  # type: ignore
+USER = User
 
 
 class EducationTestCase(TestCase):
@@ -163,4 +161,72 @@ class EducationTestCase(TestCase):
             response.status_code,
             200,
             f"{self.admin} did not get access with {method}",
+        )
+
+
+class FinanceModelsTestCase(TestCase):
+    def setUp(self) -> None:
+        self.admin = USER.objects.create_user(
+            "ADM@example.com",
+            "0@dmin",
+            role="ADM",
+        )
+        teacher = USER.objects.create_user(
+            "TCH@example.com",
+            "3-tch",
+            role="TCH",
+        )
+        self.teacher_profile = TeacherProfile.objects.create(
+            user=teacher,
+            first_name="Mahdi",
+            last_name="Ahmadi",
+            mobile_number="091234567890",
+            landline_number="02112345678",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.school = School.objects.create(
+            name="Finance School",
+            email="finance@example.com",
+            landline_number="02111111111",
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+        self.semester = Semester.objects.create(
+            school=self.school,
+            name="Spring",
+            start_date=now().date() - timedelta(days=30),
+            end_date=now().date() + timedelta(days=30),
+            is_summer_semester=False,
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+    def test_wage_str_representation(self) -> None:
+        wage = Wage.objects.create(
+            teacher_profile=self.teacher_profile,
+            year=now().year,
+            month=Wage.MonthChoices.MONTH_01,
+            amount=Decimal("12500.00"),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.assertEqual(
+            str(wage),
+            f"{wage.year}-{wage.month.label}",
+        )
+
+    def test_wage_rate_str_representation(self) -> None:
+        wage_rate = WageRate.objects.create(
+            semester=self.semester,
+            teacher_profile=self.teacher_profile,
+            amount=Decimal("25000.00"),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        self.assertEqual(
+            str(wage_rate),
+            f"{self.teacher_profile}-{self.semester}",
         )
