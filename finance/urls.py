@@ -5,5 +5,5 @@ from finance.views import HomeAPIView
 app_name = "finance"
 
 urlpatterns = [
-    path("", HomeAPIView.as_view(), name="home"),
+    path("home/", HomeAPIView.as_view(), name="home"),
 ]
