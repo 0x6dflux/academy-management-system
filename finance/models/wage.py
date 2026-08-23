@@ -23,7 +23,7 @@ class Wage(SoftDeleteBaseModel):
         models.CASCADE,
         related_name="wage",
     )
-    year = models.SmallIntegerField()
+    year = models.PositiveSmallIntegerField()
     # [validation] shall be greater than the current year
     # this validation is not good, to be able to import previous records
     month = models.PositiveSmallIntegerField(choices=MonthChoices)
