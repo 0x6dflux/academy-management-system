@@ -1,10 +1,11 @@
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import OuterRef, QuerySet, Subquery
+from django.db.models import Case, F, OuterRef, QuerySet, Subquery, Sum, Value, When
 from rest_framework.exceptions import ValidationError
 
-from education.models import ReportHistory, Semester, Session
+from education.models import Course, ReportHistory, Semester, Session
+from finance.models import WageRate
 
 
 class WageService:
@@ -62,6 +63,49 @@ class WageService:
         return Decimal("1.1") if cls.semester.is_summer_semester else Decimal("1.0")
 
     @classmethod
+    def _wage_per_teacher(cls) -> QuerySet:
+        return (
+            cls.sessions.exclude(
+                latest_report_change=ReportHistory.ChangeChoices.REJECTED,
+                report__delay_time__gte=100,
+            )
+            .annotate(teacher_profile=F("report__teacher_profile"))
+            .annotate(delay_penalty_coefficient=1 - F("report__delay_time") / 100)
+            .annotate(
+                session_length_coefficient=Case(
+                    When(
+                        course__sessions_length=Course.SessionLengthChoices.MIN60,
+                        then=Value(Decimal("0.7")),
+                    ),
+                    When(
+                        course__sessions_length=Course.SessionLengthChoices.MIN90,
+                        then=Value(Decimal("1.0")),
+                    ),
+                    When(
+                        course__sessions_length=Course.SessionLengthChoices.MIN120,
+                        then=Value(Decimal("1.3")),
+                    ),
+                )
+            )
+            .annotate(
+                wage_rate=Subquery(
+                    WageRate.objects.filter(
+                        semester=cls.semester,
+                        teacher_profile=OuterRef("report__teacher_profile"),
+                    ).values("amount")[:1]
+                )
+            )
+            .annotate(
+                report_income=F("delay_penalty_coefficient")
+                * F("session_length_coefficient")
+                * F("wage_rate")
+                * cls._summer_coefficient()
+            )
+            .values("teacher_profile")
+            .annotate(total_reports_income=Sum("report_income"))
+        )
+
+    @classmethod
     def calculate_wages(cls, semester: Semester, year: int, month: int) -> None:
         """
         This method is the entrypoint of this service.
@@ -80,6 +124,7 @@ class WageService:
         if not cls._are_reports_reviewed():
             raise ValidationError("There are reports which are not reviewed!")
 
-        # calculate wage per teacher
+        # calculate wage for all teachers
+        wage_per_teacher = cls._wage_per_teacher()
 
         # insert into db
