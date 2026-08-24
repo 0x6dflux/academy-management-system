@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.db.models import OuterRef, QuerySet, Subquery
 from rest_framework.exceptions import ValidationError
@@ -55,6 +56,10 @@ class WageService:
                 ReportHistory.ChangeChoices.UPDATED,
             )
         ).exists()
+
+    @classmethod
+    def _summer_coefficient(cls) -> Decimal:
+        return Decimal("1.1") if cls.semester.is_summer_semester else Decimal("1.0")
 
     @classmethod
     def calculate_wages(cls, semester: Semester, year: int, month: int) -> None:
