@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.db.models import OuterRef, QuerySet, Subquery
+from rest_framework.exceptions import ValidationError
 
 from education.models import ReportHistory, Semester, Session
 
@@ -30,7 +31,30 @@ class WageService:
                 date__gte=cls.starting_date,
                 date__lt=cls.ending_date,
             )
+            .annotate(
+                latest_report_change=Subquery(
+                    ReportHistory.objects.filter(report=OuterRef("report__pk"))
+                    .order_by("-id")
+                    .values("change")[:1]
+                )
+            )
         )
+
+    @classmethod
+    def _are_reports_reviewed(cls) -> bool:
+        """
+        This method checks whether all reports have been reviewed or not.
+        If a report latest change is CREATED/UPDATED, it has not been reviewed.
+        IF a report latest change is REJECTED, it has been reviewed. The
+        corresponding teacher shall update the report to get approval.
+        """
+
+        return not cls.sessions.filter(
+            latest_report_change__in=(
+                ReportHistory.ChangeChoices.CREATED,
+                ReportHistory.ChangeChoices.UPDATED,
+            )
+        ).exists()
 
     @classmethod
     def calculate_wages(cls, semester: Semester, year: int, month: int) -> None:
@@ -48,6 +72,8 @@ class WageService:
         cls._filter_sessions()
 
         # are reports reviewed?
+        if not cls._are_reports_reviewed():
+            raise ValidationError("There are reports which are not reviewed!")
 
         # calculate wage per teacher
 
