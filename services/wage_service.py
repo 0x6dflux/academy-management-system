@@ -4,8 +4,11 @@ from decimal import Decimal
 from django.db.models import Case, F, OuterRef, QuerySet, Subquery, Sum, Value, When
 from rest_framework.exceptions import ValidationError
 
+from account.models import TeacherProfile, User
 from education.models import Course, ReportHistory, Semester, Session
 from finance.models import WageRate
+
+USER = User
 
 
 class WageService:
@@ -43,6 +46,12 @@ class WageService:
         )
 
     @classmethod
+    def _are_reports_submitted(cls) -> bool:
+        """This method checks whether all reports have been submitted or not."""
+
+        return not cls.sessions.filter(report__isnull=True).exists()
+
+    @classmethod
     def _are_reports_reviewed(cls) -> bool:
         """
         This method checks whether all reports have been reviewed or not.
@@ -56,6 +65,13 @@ class WageService:
                 ReportHistory.ChangeChoices.CREATED,
                 ReportHistory.ChangeChoices.UPDATED,
             )
+        ).exists()
+
+    @classmethod
+    def _is_wage_rate_set_for_all_teachers(cls) -> bool:
+        return not TeacherProfile.objects.filter(
+            wage_rate__semester=cls.semester,
+            wage_rate__amount__isnull=True,
         ).exists()
 
     @classmethod
@@ -119,6 +135,14 @@ class WageService:
 
         # filter the sessions
         cls._filter_sessions()
+
+        # checks whether all teachers have wage_rate
+        if not cls._is_wage_rate_set_for_all_teachers():
+            raise ValidationError("There are teachers without wage rate!")
+
+        # verify that every session has a submitted report
+        if not cls._are_reports_submitted():
+            raise ValidationError("There are reports which are not submitted!")
 
         # are reports reviewed?
         if not cls._are_reports_reviewed():
