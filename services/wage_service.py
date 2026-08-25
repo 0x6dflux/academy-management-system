@@ -1,7 +1,18 @@
 from datetime import date
 from decimal import Decimal
 
-from django.db.models import Case, F, OuterRef, QuerySet, Subquery, Sum, Value, When
+from django.db.models import (
+    Case,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    OuterRef,
+    QuerySet,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 from rest_framework.exceptions import ValidationError
 
 from account.models import TeacherProfile, User
@@ -29,17 +40,17 @@ class WageService:
         """This method filters the sessions in the database."""
 
         cls.sessions = (
-            Session.objects.prefetch_related("report")
-            .select_related("course")
+            Session.objects
+            # .prefetch_related("report")
+            # .select_related("course")
             .filter(
                 course__semester=cls.semester,
                 date__gte=cls.starting_date,
                 date__lt=cls.ending_date,
-            )
-            .annotate(
+            ).annotate(
                 latest_report_change=Subquery(
                     ReportHistory.objects.filter(report=OuterRef("report__pk"))
-                    .order_by("-id")
+                    .order_by("-modified_at", "-id")
                     .values("change")[:1]
                 )
             )
@@ -69,9 +80,8 @@ class WageService:
 
     @classmethod
     def _is_wage_rate_set_for_all_teachers(cls) -> bool:
-        return not TeacherProfile.objects.filter(
-            wage_rate__semester=cls.semester,
-            wage_rate__amount__isnull=True,
+        return not cls.sessions.filter(
+            report__teacher_profile__wage_rate__amount__isnull=True,
         ).exists()
 
     @classmethod
@@ -81,12 +91,19 @@ class WageService:
     @classmethod
     def _wage_per_teacher(cls) -> QuerySet:
         return (
-            cls.sessions.exclude(
-                latest_report_change=ReportHistory.ChangeChoices.REJECTED,
+            cls.sessions.filter(
+                latest_report_change=ReportHistory.ChangeChoices.APPROVED
+            )
+            .exclude(
                 report__delay_time__gte=100,
             )
             .annotate(teacher_profile=F("report__teacher_profile"))
-            .annotate(delay_penalty_coefficient=1 - F("report__delay_time") / 100)
+            .annotate(
+                delay_penalty_coefficient=ExpressionWrapper(
+                    1 - F("report__delay_time") / 100,
+                    DecimalField(max_digits=11, decimal_places=2),
+                )
+            )
             .annotate(
                 session_length_coefficient=Case(
                     When(
@@ -112,13 +129,16 @@ class WageService:
                 )
             )
             .annotate(
-                report_income=F("delay_penalty_coefficient")
-                * F("session_length_coefficient")
-                * F("wage_rate")
-                * cls._summer_coefficient()
+                wage_per_report=ExpressionWrapper(
+                    F("delay_penalty_coefficient")
+                    * F("session_length_coefficient")
+                    * F("wage_rate")
+                    * cls._summer_coefficient(),
+                    DecimalField(max_digits=11, decimal_places=2),
+                )
             )
             .values("teacher_profile")
-            .annotate(total_reports_income=Sum("report_income"))
+            .annotate(wage=Sum("wage_per_report"))
         )
 
     @classmethod
@@ -136,13 +156,13 @@ class WageService:
         # filter the sessions
         cls._filter_sessions()
 
-        # checks whether all teachers have wage_rate
-        if not cls._is_wage_rate_set_for_all_teachers():
-            raise ValidationError("There are teachers without wage rate!")
-
         # verify that every session has a submitted report
         if not cls._are_reports_submitted():
             raise ValidationError("There are reports which are not submitted!")
+
+        # checks whether all teachers have wage_rate
+        if not cls._is_wage_rate_set_for_all_teachers():
+            raise ValidationError("There are teachers without wage rate!")
 
         # are reports reviewed?
         if not cls._are_reports_reviewed():
