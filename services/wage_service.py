@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import (
@@ -30,10 +30,10 @@ class WageService:
 
     @classmethod
     def _set_date_range(cls, year: int, month: int) -> None:
-        """This method sets the `[starting, ending)` dates."""
+        """This method sets the `[starting, ending]` dates."""
 
         cls.starting_date = date(year, month, 1)
-        cls.ending_date = date(year, month + 1, 1)
+        cls.ending_date = date(year, month + 1, 1) - timedelta(1)
 
     @classmethod
     def _filter_sessions(cls) -> None:
@@ -45,8 +45,9 @@ class WageService:
             # .select_related("course")
             .filter(
                 course__semester=cls.semester,
-                date__gte=cls.starting_date,
-                date__lt=cls.ending_date,
+                date__range=(cls.starting_date, cls.ending_date),
+                # date__gte=cls.starting_date,
+                # date__lt=cls.ending_date,
             ).annotate(
                 latest_report_change=Subquery(
                     ReportHistory.objects.filter(report=OuterRef("report__pk"))
