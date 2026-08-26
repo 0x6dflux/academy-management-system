@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from math import ceil
 
 import pytz
 from django.db.models import OuterRef, Subquery
@@ -95,7 +96,7 @@ class ReportSubmissionWriteOnlyModelSerializer(
     def delay_calculation(session) -> tuple[bool, int]:
         """
         This method determines whether the report is submitted with delay or not as a boolean variable.
-        Moreover, this method calculates the delay time in rounded down hours.
+        Moreover, this method calculates the delay time in rounded up hours.
         """
 
         submission_due_datetime = datetime.combine(
@@ -109,9 +110,9 @@ class ReportSubmissionWriteOnlyModelSerializer(
         if local_now <= local_submission_due_datetime:
             return False, 0
 
-        return True, int(
-            (local_now - local_submission_due_datetime).total_seconds()
-        ) // 3600
+        return True, ceil(
+            (local_now - local_submission_due_datetime).total_seconds() / 3600
+        )
 
     def create(self, validated_data: dict):
 
