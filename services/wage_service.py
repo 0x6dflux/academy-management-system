@@ -23,7 +23,7 @@ USER = User
 
 
 class WageService:
-    """Instantiate this service and call `calculate_wages()` once."""
+    """Instantiate this service and call `calculate_wages()`."""
 
     def __init__(self, year: int, month: int, user: USER) -> None:
         self.year = year
@@ -219,7 +219,12 @@ class WageService:
             ).values_list("id", flat=True)
         )
 
-        Wage.objects.bulk_create(wages)
+        Wage.objects.bulk_create(
+            wages,
+            update_conflicts=True,
+            update_fields=("amount", "updated_by", "updated_at"),
+            unique_fields=("teacher_profile", "year", "month"),
+        )
 
     def calculate_wages(self) -> None:
         """
