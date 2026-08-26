@@ -23,37 +23,41 @@ USER = User
 
 
 class WageService:
-    starting_date: date
-    ending_date: date
-    sessions: QuerySet
-    wage_per_teacher: QuerySet
-    teachers_without_wage: QuerySet
+    """Instantiate this service and call `calculate_wages()` once."""
 
-    @classmethod
-    def _set_date_range(cls, year: int, month: int) -> None:
+    def __init__(self, year: int, month: int, user: USER) -> None:
+        self.year = year
+        self.month = month
+        self.user = user
+
+        # set the overall sessions
+        self.sessions = Session.objects.all()
+
+        # set the starting and ending dates
+        self._set_date_range()
+
+    def _set_date_range(self) -> None:
         """This method sets the `[starting, ending]` dates."""
 
-        cls.starting_date = date(year, month, 1)
+        self.starting_date = date(self.year, self.month, 1)
 
-        if month == 12:
-            next_year = year + 1
+        if self.month == 12:
+            next_year = self.year + 1
             next_month = 1
         else:
-            next_year = year
-            next_month = month + 1
+            next_year = self.year
+            next_month = self.month + 1
 
-        cls.ending_date = date(next_year, next_month, 1) - timedelta(1)
+        self.ending_date = date(next_year, next_month, 1) - timedelta(1)
 
-    @classmethod
-    def _filter_sessions_in_wage_calculation_duration(cls) -> None:
+    def _filter_sessions_in_wage_calculation_duration(self) -> None:
         """This method filters sessions during the wage calculation period."""
 
-        cls.sessions = cls.sessions.filter(
-            date__range=(cls.starting_date, cls.ending_date),
+        self.sessions = self.sessions.filter(
+            date__range=(self.starting_date, self.ending_date)
         )
 
-    @classmethod
-    def _filter_sessions_against_teachers_not_submitted_all_reports(cls) -> None:
+    def _filter_sessions_against_teachers_not_submitted_all_reports(self) -> None:
         """
         This method filters sessions without report in the wage calculation period.
         Then extract the responsible teachers assigned to these sessions.
@@ -62,7 +66,7 @@ class WageService:
         """
 
         teachers_not_submitted_all_reports = (
-            cls.sessions.filter(
+            self.sessions.filter(
                 report__isnull=True,
                 date__range=(
                     F("course__teachers__started_at"),
@@ -73,22 +77,20 @@ class WageService:
             .distinct()
         )
 
-        cls.sessions = cls.sessions.filter(report__isnull=False).exclude(
+        self.sessions = self.sessions.filter(report__isnull=False).exclude(
             report__teacher_profile__in=teachers_not_submitted_all_reports
         )
 
-    @classmethod
-    def _filter_sessions(cls) -> None:
+    def _filter_sessions(self) -> None:
         """This method applies filters on the sessions queryset."""
 
-        cls._filter_sessions_in_wage_calculation_duration()
-        cls._filter_sessions_against_teachers_not_submitted_all_reports()
+        self._filter_sessions_in_wage_calculation_duration()
+        self._filter_sessions_against_teachers_not_submitted_all_reports()
 
-    @classmethod
-    def _annotate_the_latest_report_change(cls) -> None:
+    def _annotate_the_latest_report_change(self) -> None:
         """This method adds a new field on the sessions queryset as `latest_report_change`."""
 
-        cls.sessions = cls.sessions.annotate(
+        self.sessions = self.sessions.annotate(
             latest_report_change=Subquery(
                 ReportHistory.objects.filter(report=OuterRef("report__pk"))
                 .order_by("-modified_at", "-id")
@@ -96,8 +98,7 @@ class WageService:
             )
         )
 
-    @classmethod
-    def _are_reports_reviewed(cls) -> bool:
+    def _are_reports_reviewed(self) -> bool:
         """
         This method checks whether all reports have been reviewed or not.
         If a report latest change is CREATED/UPDATED, it has not been reviewed.
@@ -105,22 +106,21 @@ class WageService:
         corresponding teacher shall update the report to get approval.
         """
 
-        return not cls.sessions.filter(
+        return not self.sessions.filter(
             latest_report_change__in=(
                 ReportHistory.ChangeChoices.CREATED,
                 ReportHistory.ChangeChoices.UPDATED,
             )
         ).exists()
 
-    @classmethod
-    def _is_wage_rate_set_for_all_teachers(cls) -> bool:
+    def _is_wage_rate_set_for_all_teachers(self) -> bool:
         """
         This method checks whether the wage rate has been defined for
         all teachers in the wage calculation period.
         """
 
         return (
-            not cls.sessions.annotate(
+            not self.sessions.annotate(
                 wage_rate=Subquery(
                     WageRate.objects.filter(
                         semester=OuterRef("course__semester"),
@@ -132,12 +132,11 @@ class WageService:
             .exists()
         )
 
-    @classmethod
-    def _wage_per_teacher(cls) -> QuerySet:
+    def _wage_per_teacher(self) -> QuerySet:
         """This method calculates a teacher wage in the specified month."""
 
         return (
-            cls.sessions.filter(
+            self.sessions.filter(
                 latest_report_change=ReportHistory.ChangeChoices.APPROVED
             )
             .exclude(
@@ -189,19 +188,18 @@ class WageService:
             .values_list("teacher_profile", "wage")
         )
 
-    @classmethod
-    def _insert_wages_into_db(cls, year: int, month: int, user: USER) -> None:
+    def _insert_wages_into_db(self) -> None:
         wages = []
         teacher_profile_ids = []
-        for teacher_profile_id, wage in cls.wage_per_teacher:
+        for teacher_profile_id, wage in self.wage_per_teacher:
             wages.append(
                 Wage(
                     teacher_profile_id=teacher_profile_id,
-                    year=year,
-                    month=month,
+                    year=self.year,
+                    month=self.month,
                     amount=wage,
-                    created_by=user,
-                    updated_by=user,
+                    created_by=self.user,
+                    updated_by=self.user,
                 )
             )
 
@@ -210,11 +208,11 @@ class WageService:
         wages.extend(
             Wage(
                 teacher_profile_id=teacher_profile_id,
-                year=year,
-                month=month,
+                year=self.year,
+                month=self.month,
                 amount=Decimal("0.0"),
-                created_by=user,
-                updated_by=user,
+                created_by=self.user,
+                updated_by=self.user,
             )
             for teacher_profile_id in TeacherProfile.objects.exclude(
                 id__in=teacher_profile_ids
@@ -223,34 +221,27 @@ class WageService:
 
         Wage.objects.bulk_create(wages)
 
-    @classmethod
-    def calculate_wages(cls, year: int, month: int, user: USER) -> None:
+    def calculate_wages(self) -> None:
         """
         This method is the entrypoint of this service.
         """
 
-        # resetting the cls.sessions in every run
-        cls.sessions = Session.objects.all()
-
-        # set the starting and ending dates
-        cls._set_date_range(year, month)
-
         # filter the sessions
-        cls._filter_sessions()
+        self._filter_sessions()
 
         # annotate the late report change
-        cls._annotate_the_latest_report_change()
+        self._annotate_the_latest_report_change()
 
         # checks whether all teachers have wage_rate
-        if not cls._is_wage_rate_set_for_all_teachers():
+        if not self._is_wage_rate_set_for_all_teachers():
             raise ValidationError("There are teachers without wage rate!")
 
         # are reports reviewed?
-        if not cls._are_reports_reviewed():
+        if not self._are_reports_reviewed():
             raise ValidationError("There are reports which are not reviewed!")
 
         # calculate wage for all teachers
-        cls.wage_per_teacher = cls._wage_per_teacher()
+        self.wage_per_teacher = self._wage_per_teacher()
 
         # insert into db
-        cls._insert_wages_into_db(year, month, user)
+        self._insert_wages_into_db()
