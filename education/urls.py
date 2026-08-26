@@ -11,6 +11,7 @@ from education.views import (
     SchoolModelViewSet,
     SemesterModelViewSet,
     SessionModelViewSet,
+    SubstituteTeacherAPIView,
     TeacherCourseModelViewSet,
     TeacherReportStatAPIView,
     TeacherScheduleAPIView,
@@ -49,5 +50,10 @@ urlpatterns = [
         "teacher-report-stat/",
         TeacherReportStatAPIView.as_view(),
         name="teacher-report-stat",
+    ),
+    path(
+        "substitute-teacher/",
+        SubstituteTeacherAPIView.as_view(),
+        name="substitute-teacher",
     ),
 ]

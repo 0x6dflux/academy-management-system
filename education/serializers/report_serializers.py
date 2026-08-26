@@ -81,7 +81,9 @@ class ReportSubmissionWriteOnlyModelSerializer(
         if not (
             # check whether this teacher is assigned in the TeacherCourse table
             value.course.teachers.filter(
-                teacher_profile__user=self.context["request"].user
+                teacher_profile__user=self.context["request"].user,
+                started_at__lte=value.date,
+                ended_at__gte=value.date,
             ).exists()
             # check which teacher assigned in the TeacherCourse has run the session
             # and

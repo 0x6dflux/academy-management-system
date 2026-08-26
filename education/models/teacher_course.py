@@ -19,13 +19,13 @@ class TeacherCourse(SoftDeleteBaseModel):
 
     # [validation] time intervals shall not overlap each other
 
-    class Meta:
-        constraints = (
-            models.UniqueConstraint(
-                fields=["teacher_profile", "course"],
-                name="unique_teacher_course",
-            ),
-        )
+    # class Meta:
+    #     constraints = (
+    #         models.UniqueConstraint(
+    #             fields=["teacher_profile", "course"],
+    #             name="unique_teacher_course",
+    #         ),
+    #     )
 
     # it may not be necessary
     def __str__(self) -> str:
