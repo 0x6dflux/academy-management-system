@@ -15,14 +15,18 @@ from django.db.models import (
 )
 from rest_framework.exceptions import ValidationError
 
+from account.models import TeacherProfile, User
 from education.models import Course, ReportHistory, Session
-from finance.models import WageRate
+from finance.models import Wage, WageRate
+
+USER = User
 
 
 class WageService:
     starting_date: date
     ending_date: date
     sessions: QuerySet
+    wage_per_teacher: QuerySet
     teachers_without_wage: QuerySet
 
     @classmethod
@@ -72,8 +76,6 @@ class WageService:
         cls.sessions = cls.sessions.filter(report__isnull=False).exclude(
             report__teacher_profile__in=teachers_not_submitted_all_reports
         )
-
-        cls.teachers_without_wage = teachers_not_submitted_all_reports
 
     @classmethod
     def _filter_sessions(cls) -> None:
@@ -188,7 +190,41 @@ class WageService:
         )
 
     @classmethod
-    def calculate_wages(cls, year: int, month: int) -> None:
+    def _insert_wages_into_db(cls, year: int, month: int, user: USER) -> None:
+        wages = []
+        teacher_profile_ids = []
+        for teacher_profile_id, wage in cls.wage_per_teacher:
+            wages.append(
+                Wage(
+                    teacher_profile_id=teacher_profile_id,
+                    year=year,
+                    month=month,
+                    amount=wage,
+                    created_by=user,
+                    updated_by=user,
+                )
+            )
+
+            teacher_profile_ids.append(teacher_profile_id)
+
+        wages.extend(
+            Wage(
+                teacher_profile_id=teacher_profile_id,
+                year=year,
+                month=month,
+                amount=Decimal("0.0"),
+                created_by=user,
+                updated_by=user,
+            )
+            for teacher_profile_id in TeacherProfile.objects.exclude(
+                id__in=teacher_profile_ids
+            ).values_list("id", flat=True)
+        )
+
+        Wage.objects.bulk_create(wages)
+
+    @classmethod
+    def calculate_wages(cls, year: int, month: int, user: USER) -> None:
         """
         This method is the entrypoint of this service.
         """
@@ -214,7 +250,7 @@ class WageService:
             raise ValidationError("There are reports which are not reviewed!")
 
         # calculate wage for all teachers
-        wage_per_teacher = cls._wage_per_teacher()
+        cls.wage_per_teacher = cls._wage_per_teacher()
 
         # insert into db
-        # for teachers_without_wage consider wage=0
+        cls._insert_wages_into_db(year, month, user)
