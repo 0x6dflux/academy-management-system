@@ -3,6 +3,7 @@ from rest_framework.routers import SimpleRouter
 
 from finance.views import (
     HomeAPIView,
+    WageCalculationAPIView,
     WageRateCustomModelViewSet,
     WageReadOnlyModelViewSet,
 )
@@ -16,4 +17,9 @@ app_name = "finance"
 urlpatterns = [
     path("home/", HomeAPIView.as_view(), name="home"),
     path("", include(router.urls)),
+    path(
+        "wage-calculation/",
+        WageCalculationAPIView.as_view(),
+        name="wage-calculation",
+    ),
 ]
