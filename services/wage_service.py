@@ -19,13 +19,11 @@ from account.models import TeacherProfile, User
 from education.models import Course, ReportHistory, Session
 from finance.models import Wage, WageRate
 
-USER = User
-
 
 class WageService:
     """Instantiate this service and call `calculate_wages()`."""
 
-    def __init__(self, year: int, month: int, user: USER) -> None:
+    def __init__(self, year: int, month: int, user: User) -> None:
         self.year = year
         self.month = month
         self.user = user
