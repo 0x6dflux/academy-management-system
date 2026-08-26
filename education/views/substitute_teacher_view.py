@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,7 +18,7 @@ class SubstituteTeacherAPIView(APIView):
     http_method_names = ("post",)
     permission_classes = (IsAuthenticated, IsEducationOfficerOrAdmin)
 
-    # @transaction.atomic
+    @transaction.atomic
     def post(self, request: Request) -> Response:
         substitute_serializer = SubstituteTeacherSerializer(data=request.data)
 

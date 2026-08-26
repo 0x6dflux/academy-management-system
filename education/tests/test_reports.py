@@ -1,3 +1,5 @@
+"""Tests for the session-report lifecycle and teacher reporting dashboard."""
+
 from datetime import datetime, time, timedelta
 from typing import Any
 from unittest.mock import patch
