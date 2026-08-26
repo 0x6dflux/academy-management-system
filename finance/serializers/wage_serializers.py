@@ -15,7 +15,11 @@ class WageModelSerializer(serializers.ModelSerializer):
 
 class WageCalculationSerializer(serializers.Serializer):
     month = serializers.ChoiceField(Wage.MonthChoices.choices, write_only=True)
-    year = serializers.IntegerField(write_only=True)
+    year = serializers.IntegerField(
+        min_value=date.min.year,
+        max_value=date.max.year,
+        write_only=True,
+    )
 
     def validate(self, data: dict) -> dict:
         current_date = timezone.localdate()
