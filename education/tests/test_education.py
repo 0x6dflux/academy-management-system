@@ -1,3 +1,5 @@
+"""Tests for core education models, serializers, endpoints, and filtering."""
+
 from datetime import date, time, timedelta
 
 from django.test import TestCase
@@ -2998,7 +3000,7 @@ class EducationSerializerValidationTestCase(TestCase):
     # =====================
     # TeacherCourseModelSerializer
     # =====================
-    def test_teacher_course_already_has_teacher(self):
+    def test_teacher_course_allows_non_overlapping_assignment(self):
         TeacherCourse.objects.create(
             teacher_profile=self.teacher_profile,
             course=self.course,
@@ -3026,10 +3028,33 @@ class EducationSerializerValidationTestCase(TestCase):
             "ended_at": date(2027, 1, 10),
         }
         serializer = TeacherCourseModelSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("This course already has a teacher!", str(serializer.errors))
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    def test_teacher_course_started_at_equals_ended_at(self):
+    def test_teacher_course_rejects_overlapping_assignment(self):
+        TeacherCourse.objects.create(
+            teacher_profile=self.teacher_profile,
+            course=self.course,
+            started_at=date(2026, 10, 5),
+            ended_at=date(2026, 12, 20),
+            created_by=self.admin,
+            updated_by=self.admin,
+        )
+
+        data = {
+            "teacher_profile_id": self.teacher_profile.pk,
+            "course_id": self.course.pk,
+            "started_at": date(2026, 12, 20),
+            "ended_at": date(2027, 1, 10),
+        }
+        serializer = TeacherCourseModelSerializer(data=data)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "This course already has a teacher assigned during this period!",
+            str(serializer.errors),
+        )
+
+    def test_teacher_course_allows_single_day_assignment(self):
         data = {
             "teacher_profile_id": self.teacher_profile.pk,
             "course_id": self.course.pk,
@@ -3037,11 +3062,7 @@ class EducationSerializerValidationTestCase(TestCase):
             "ended_at": date(2026, 10, 5),
         }
         serializer = TeacherCourseModelSerializer(data=data)
-        self.assertFalse(serializer.is_valid())
-        self.assertIn(
-            "A teacher contract shall be at least one-day long!",
-            str(serializer.errors),
-        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_teacher_course_started_after_ended(self):
         data = {
@@ -3053,7 +3074,7 @@ class EducationSerializerValidationTestCase(TestCase):
         serializer = TeacherCourseModelSerializer(data=data)
         self.assertFalse(serializer.is_valid())
         self.assertIn(
-            "A teacher contract shall be at least one-day long!",
+            "The teacher assignment end date cannot be before the start date!",
             str(serializer.errors),
         )
 
@@ -3152,11 +3173,11 @@ class EducationSerializerValidationTestCase(TestCase):
         )
         self.assertFalse(serializer.is_valid())
         self.assertIn(
-            "Changing the teacher during the course is not possible!",
+            "The teacher of an existing assignment cannot be changed!",
             str(serializer.errors),
         )
 
-    def test_teacher_course_can_change_teacher_before_course_start(self) -> None:
+    def test_teacher_course_cannot_change_teacher_before_course_start(self) -> None:
         now = timezone.now().date()
         future_semester = Semester.objects.create(
             school=self.school,
@@ -3210,7 +3231,11 @@ class EducationSerializerValidationTestCase(TestCase):
                 "ended_at": now + timedelta(days=60),
             },
         )
-        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "The teacher of an existing assignment cannot be changed!",
+            str(serializer.errors),
+        )
 
 
 class EducationCourseFilteringTestCase(TestCase, EndpointTestsMixin):

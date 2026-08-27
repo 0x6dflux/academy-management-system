@@ -23,7 +23,7 @@ class Wage(SoftDeleteBaseModel):
         models.CASCADE,
         related_name="wage",
     )
-    year = models.SmallIntegerField()
+    year = models.PositiveSmallIntegerField()
     # [validation] shall be greater than the current year
     # this validation is not good, to be able to import previous records
     month = models.PositiveSmallIntegerField(choices=MonthChoices)
@@ -49,5 +49,17 @@ class Wage(SoftDeleteBaseModel):
     # modification_reason = models.TextField(blank=True)
     # # [validation] if `is_modified==True` then this field is required
 
+    class Meta:
+        constraints = (
+            models.UniqueConstraint(
+                fields=("teacher_profile", "year", "month"),
+                name="unique_teacher_monthly_wage",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="wage_amount_nonnegative",
+            ),
+        )
+
     def __str__(self) -> str:
-        return f"{self.year}-{self.month.label}"  # type: ignore
+        return f"{self.year}-{self.get_month_display()}"  # type: ignore

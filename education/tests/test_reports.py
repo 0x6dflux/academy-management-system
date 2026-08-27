@@ -1,3 +1,5 @@
+"""Tests for the session-report lifecycle and teacher reporting dashboard."""
+
 from datetime import datetime, time, timedelta
 from typing import Any
 from unittest.mock import patch
@@ -791,6 +793,45 @@ class ReportLifecycleAPITestCase(TestCase, EndpointTestsMixin):
 
         self.assertFalse(is_late)
         self.assertEqual(delay_time, 0)
+
+    def test_report_delay_calculation_rounds_started_overdue_hours_up(self) -> None:
+        current_local = self.local_tz.localize(datetime(2026, 8, 26, 12, 0, 0))
+        cases = (
+            (timedelta(seconds=1), 1),
+            (timedelta(minutes=30), 1),
+            (timedelta(hours=1), 1),
+            (timedelta(hours=1, seconds=1), 2),
+        )
+
+        for overdue_duration, expected_delay in cases:
+            with self.subTest(
+                overdue_duration=overdue_duration,
+                expected_delay=expected_delay,
+            ):
+                session_end = (
+                    current_local - timedelta(hours=48) - overdue_duration
+                )
+                pseudo_session = Session(
+                    date=session_end.date(),
+                    start_time=time(9, 0),
+                    end_time=session_end.time(),
+                )
+
+                with patch(
+                    "education.serializers.report_serializers.datetime"
+                ) as datetime_mock:
+                    datetime_mock.combine.side_effect = lambda date_obj, time_obj: (
+                        datetime.combine(date_obj, time_obj)
+                    )
+                    datetime_mock.now.return_value = current_local
+                    is_late, delay_time = (
+                        ReportSubmissionWriteOnlyModelSerializer.delay_calculation(
+                            pseudo_session
+                        )
+                    )
+
+                self.assertTrue(is_late)
+                self.assertEqual(delay_time, expected_delay)
 
     def test_report_submission_marks_not_late_within_48_hours(self) -> None:
         session = self._create_session(

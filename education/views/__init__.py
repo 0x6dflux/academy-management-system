@@ -11,6 +11,7 @@ from education.views.school_view import (
 )
 from education.views.semester_view import SemesterModelViewSet
 from education.views.session_view import SessionModelViewSet
+from education.views.substitute_teacher_view import SubstituteTeacherAPIView
 from education.views.teacher_course_view import TeacherCourseModelViewSet
 from education.views.teacher_dashboard_view import (
     TeacherReportStatAPIView,
@@ -27,6 +28,7 @@ __all__ = [
     "SchoolModelViewSet",
     "SemesterModelViewSet",
     "SessionModelViewSet",
+    "SubstituteTeacherAPIView",
     "TeacherCourseModelViewSet",
     "TeacherReportStatAPIView",
     "TeacherScheduleAPIView",

@@ -1,4 +1,3 @@
-from django.utils.timezone import now
 from rest_framework import serializers
 
 from account.models import TeacherProfile
@@ -52,25 +51,9 @@ class TeacherCourseModelSerializer(SetUserModifierMixin, serializers.ModelSerial
             # [HINT] due to `source="course"` at line 19, the DRF will set the
             # course object on `data` with `course` key.
 
-        if self.instance:
-            # `PUT` or `PATCH`
-            if (
-                self.instance.teacher_profile_id != teacher_profile.id  # type: ignore
-                and not now().date() < course.start_date  # type: ignore
-            ):
-                raise serializers.ValidationError(
-                    "Changing the teacher during the course is not possible! "
-                    "Update the ended_at of the previous teacher and then, "
-                    "assign the new teacher to this course."
-                )
-        else:
-            # `POST`
-            if TeacherCourse.objects.filter(course=course).exists():  # type: ignore
-                raise serializers.ValidationError("This course already has a teacher!")
-
-        if not started_at < ended_at:  # type: ignore
+        if not started_at <= ended_at:  # type: ignore
             raise serializers.ValidationError(
-                "A teacher contract shall be at least one-day long!"
+                "The teacher assignment end date cannot be before the start date!"
             )
 
         if not course.start_date <= started_at <= course.end_date:  # type: ignore
@@ -81,6 +64,42 @@ class TeacherCourseModelSerializer(SetUserModifierMixin, serializers.ModelSerial
         if not course.start_date <= ended_at <= course.end_date:  # type: ignore
             raise serializers.ValidationError(
                 "A teacher shall end their job within the course duration!"
+            )
+
+        teacher_assignment_overlaps = TeacherCourse.objects.filter(
+            course=course,
+            started_at__lte=ended_at,
+            ended_at__gte=started_at,
+        )
+
+        if self.instance:
+            # `PUT` or `PATCH`
+
+            # the instance shall not be present in the overlap-checking queryset
+            teacher_assignment_overlaps = teacher_assignment_overlaps.exclude(
+                id=self.instance.id
+            )
+
+            if (
+                self.instance.teacher_profile_id != teacher_profile.id  # type: ignore
+                # and not now().date() < course.start_date  # type: ignore
+            ):
+                raise serializers.ValidationError(
+                    "The teacher of an existing assignment cannot be changed! "
+                    "Update the ended_at of the previous teacher and then, "
+                    "assign the new teacher to this course."
+                )
+        # else:
+        #     # `POST`
+        #     if TeacherCourse.objects.filter(
+        #         course=course,
+        #         started_at__lte=ended_at,
+        #         ended_at__gte=started_at,
+        #     ).exists():  # type: ignore
+        #         raise serializers.ValidationError("This course already has a teacher!")
+        if teacher_assignment_overlaps.exists():
+            raise serializers.ValidationError(
+                "This course already has a teacher assigned during this period!"
             )
 
         return data
