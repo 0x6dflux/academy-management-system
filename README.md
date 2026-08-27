@@ -444,38 +444,6 @@ The suite covers:
 
 At the time of this README audit, Django discovers 256 tests and the complete suite passes.
 
-## Known Limitations and Requirement Deviations
-
-- **Late-report policy differs from the original mandatory rule.** The original requirement excluded every report submitted after the 48-hour deadline. This implementation uses the optional penalty model: 1% per rounded-up overdue hour after the 48-hour grace period, reaching zero at 100 overdue hours.
-- **Substitution changes the official assignment.** The intended optional feature keeps the official `TeacherCourse` row unchanged and records a session-specific substitute. The implementation instead splits/soft-deletes assignment periods and has no dedicated substitution model.
-- **Future report submission is not blocked.** Ownership is validated against the assignment date, but the report serializer has no check that the session has already occurred.
-- **Teacher schedules are course-scoped, not assignment-date-scoped.** A teacher receives courses with any matching assignment row, and the endpoint prefetches all active sessions for those courses rather than only sessions inside that teacher's assignment period.
-- **Jalali dates are not implemented.** Models and serializers use Gregorian Django `DateField` values and ISO API input/output.
-- **Teacher profile fields differ from the stated requirement.** The model has mobile and landline numbers, but no separately identified emergency-contact number.
-- **Assignment and semester overlap protection is application-level.** Serializer validation enforces it during API writes, but PostgreSQL has no exclusion constraint; direct or concurrent database writes can violate the rule.
-- **Assignment end dates are mandatory.** The requirement allowed an optional/open-ended `ended_at`; the model requires an explicit date inside the course range.
-- **Session numbering is global.** `serial_digit` is globally unique across sessions rather than being numbered within each course. Serial generation reads the latest row and is not protected against concurrent creation.
-- **Wage history is not filterable through the API.** Wage list/retrieve works, but no year/month/teacher filter backend or pagination is configured.
-- **Soft-deleted monthly wages cannot be replaced as a new active row.** Wage uniqueness is unconditional on `(teacher, year, month)`; recalculation conflicts with that hidden row and updates it without restoring `is_deleted`.
-- **Development settings are not production-ready.** `DEBUG` is enabled, `ALLOWED_HOSTS` is empty, and a development `SECRET_KEY` is stored in settings rather than read from the environment.
-- **No Docker or CI configuration is present.** Local Python/PostgreSQL setup is currently required, and no GitHub Actions workflow runs tests automatically.
-
-## Out of Scope
-
-The repository does not implement:
-
-- a student or parent portal,
-- student login or enrollment/capacity management,
-- assistant teachers,
-- SMS/email notifications,
-- support ticketing,
-- a dedicated web/mobile frontend,
-- class-cancellation compensation,
-- the optional overtime feature,
-- the optional school service-cost calculation feature.
-
-Substitute teaching is the one implemented optional Phase 4 real-system feature.
-
 ## Project Delivery Phases
 
 - **Phase 1:** custom account foundation, roles, authentication, profiles, permissions, and soft deletion. Repository tag: `PHASE-1`.
